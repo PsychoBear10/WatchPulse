@@ -1,0 +1,285 @@
+{
+  "appName": "WatchPulse",
+  "versioningPolicy": {
+    "majorFormat": "vN (SemVer N.0.0) — Major feature & architecture updates",
+    "minorFormat": "vN.xx (SemVer N.0.x / N.x.0) — Minor fixes, tweaks, and incremental patches",
+    "upgradeSafety": "All installers preserve appId (com.modelsort.studio) for seamless in-place NSIS upgrades and automatically migrate legacy v1 data (%APPDATA%\\modelsort-studio) into %APPDATA%\\watchpulse\\watchpulse-data.json without losing models, tiers, hotkeys, or thumbnails."
+  },
+  "releases": [
+    {
+      "displayVersion": "v2.09",
+      "semver": "2.0.9",
+      "date": "2026-11-12",
+      "releaseType": "Minor Update",
+      "summary": "Performs a full UI declutter pass across TopNav, Live Monitor (Grid, Watch Wall, and Stage), Rapid Sorter, and Settings while keeping Data Grid integrated inside Rapid Sorter.",
+      "dataMigrationNote": "In-place UI declutter update over v2.08 — preserves all saved models, playlists/tiers, hotkeys, Recycling Bin items, and thumbnails.",
+      "changes": [
+        {
+          "category": "Workspace UI Declutter & Layout Streamlining",
+          "items": [
+            "Slimmed TopNav down to the three primary navigation tabs (Live Monitor, Rapid Sorter, Kanban Board) without inline shortcut badges or the duplicate Playlists & Tiers header button (still accessible via Settings, Live Monitor sidebar, and Ctrl+T).",
+            "Scoped Video Only and Audio On/Muted controls strictly to Watch Wall and Stage (removing them from Watchlist Grid), replaced the full-width Stage Sort Watchlist bar with a compact inline tier selector, and auto-collapsed the left sidebar in Watch Wall mode.",
+            "Consolidated Watchlist Grid's column density, Hover Live Preview, schedule syncing, and Re-add All Active controls into an Options menu, made Grid card Wall/Hide/Tier controls reveal on hover, and compacted Watch Wall's column picker.",
+            "Decluttered Rapid Sorter by defaulting Quick Edit to closed, condensing Enriched Profile Links to a compact inline link bar, removing the raw URLs reference footer, and updating Settings' Data Grid shortcut label."
+          ]
+        }
+      ]
+    },
+    {
+      "displayVersion": "v2.08",
+      "semver": "2.0.8",
+      "date": "2026-11-12",
+      "releaseType": "Minor Update",
+      "summary": "Declutters Stage View to focus exclusively on the selected model's stream and integrates quick two-way Data Grid navigation directly inside Rapid Sorter.",
+      "dataMigrationNote": "In-place UI refinement over v2.07 — preserves all saved models, playlists/tiers, hotkeys, Recycling Bin items, and thumbnails.",
+      "changes": [
+        {
+          "category": "Stage View Declutter & Rapid Sorter Data Grid Integration",
+          "items": [
+            "Removed Followed Cams, CBExplorer, and CBHours mode tabs and directory scan controls from the Stage View toolbar so Stage focuses cleanly on evaluating a single model's live stream performance.",
+            "Added an Open Data Grid button directly inside the top-left of Rapid Sorter's workspace alongside a Rapid Sorter return button in the Data Grid toolbar for seamless two-way switching."
+          ]
+        }
+      ]
+    },
+    {
+      "displayVersion": "v2.07",
+      "semver": "2.0.7",
+      "date": "2026-11-12",
+      "releaseType": "Minor Update",
+      "summary": "Hardens the 'Usually Live Around Now' prediction algorithm with recency weighting, active-day hit rates, logoff-tail filtering, midnight wrap alignment, and percentage confidence scores, and enforces strict playlist tier priority sorting across both Watchlist Grid and Watch Wall.",
+      "dataMigrationNote": "In-place patch over v2.06 — preserves all saved models, playlists/tiers, hotkeys, Recycling Bin items, and thumbnails.",
+      "changes": [
+        {
+          "category": "Schedule Prediction & Tier Priority Ordering",
+          "items": [
+            "Rewrote getUsuallyLiveNowMeta to weight recent 14-day sessions, require genuine current/upcoming-hour activity rather than trailing logoff spillover, align overnight hours across midnight to their session day/weekday, reject isolated stale blips via active-day hit rate and weekday routine thresholds, and expose confidence percentages directly on offline grid card badges and tooltips.",
+            "Added shared compareMonitorTierPriority sorting across Watchlist Grid cards, Watch Wall tile ordering, Pull Online to Wall, and Re-add All Active so higher playlist tiers (Priority 1, Priority 2, Watchlist, Backlog, Inactive, Inbox) always take precedence over viewer counts within live and offline visibility buckets."
+          ]
+        }
+      ]
+    },
+    {
+      "displayVersion": "v2.06",
+      "semver": "2.0.6",
+      "date": "2026-11-11",
+      "releaseType": "Minor Update",
+      "summary": "Promotes Live Monitor to WatchPulse's primary startup window and first navigation tab (Ctrl+1), adds CBExplorer historical broadcast activity syncing for accurate 30-day heatmaps & active hours even when WatchPulse was closed, enables Stage audio by default, and puts Playlists & Tiers directly inside Settings.",
+      "dataMigrationNote": "In-place UI & navigation update over v2.05 — preserves all saved models, tiers, hotkeys, Recycling Bin items, and thumbnails.",
+      "changes": [
+        {
+          "category": "Primary Window, Stage Audio, Playlist Settings & CBExplorer Activity History",
+          "items": [
+            "Added Usually Live Around Now detection, filter pills (in Live Monitor sidebar and Watchlist Grid), and offline card badges comparing each model's 30-day schedule against your current local hour (+/- 1h), plus a rate-safe Sync Schedules action to pull 90-day CBExplorer history across your watchlist.",
+            "Added automatic & one-click CBExplorer broadcast history syncing (livestats/streams) inside ActivityHeatmap (Model Editor & Rapid Sorter Inspector) so 30d Active Time, Avg / Day, Usual Window, Last Seen Live, and the 30-day heatmap populate accurately from CBExplorer's historical session logs even when WatchPulse was closed.",
+            "Set Live Monitor (Watchlist Grid / Watch Wall / Stage) as the default landing view when opening WatchPulse.",
+            "Moved Live Monitor to the first navigation slot with Ctrl+1, shifting Rapid Sorter to Ctrl+2, Kanban Board to Ctrl+3, and Data Grid to Ctrl+4 across TopNav, global shortcuts, and the Settings shortcut guide.",
+            "Split Stage audio from Watch Wall / Hover Preview mute state so Stage defaults to Audio On (both in HLS playback and dynamically stripping disable_sound=1 on WebView fallback embeds) while Watch Wall and grid hover previews remain muted unless unmuted.",
+            "Added a direct Playlists & Tiers tab right inside Settings as well as an Edit Watchlists / Playlists & Hotkeys (Ctrl+T) button inside Live Monitor's sidebar header and TopNav."
+          ]
+        }
+      ]
+    },
+    {
+      "displayVersion": "v2.05",
+      "semver": "2.0.5",
+      "date": "2026-11-11",
+      "releaseType": "Minor Update",
+      "summary": "Comprehensive stability, data-integrity, and UI reliability hardening release fixing 15 stress-tested issues across persistent JSON storage, backup recovery, import/export parsers, HLS live player transitions, Watch Wall stream filtering, Rapid Sorter queue/undo flow, Kanban drag reordering, and Data Grid pagination.",
+      "dataMigrationNote": "In-place update over v2.04 — preserves all saved models, tiers, hotkeys, notes, heatmaps, and Recycling Bin items, while automatically deduplicating any legacy duplicate usernames/IDs/hotkeys and protecting corrupted backups from being overwritten.",
+      "changes": [
+        {
+          "category": "Storage Integrity, Backup Safety & App Resilience",
+          "items": [
+            "Fixed permanent write-queue poisoning in JsonStorageService after a transient I/O error by resetting the queue tail on rejection, using unique per-write temp paths, and sweeping orphaned .tmp files on startup.",
+            "Prevented corrupted primary storage files from overwriting healthy .bak.json backups and removed backup truncation inside load() repair paths.",
+            "Added synchronous window beforeunload flushing (store:saveSync IPC) so fast edits right before app close are persisted to disk.",
+            "Hardened sanitizeAppData and sanitizeClientAppData across Electron and renderer to normalize partial settings, reject reserved hotkeys (Z/Space/length > 1), deduplicate IDs/usernames/hotkeys, validate ISO dates and calendar presenceHours, and added a top-level React ErrorBoundary."
+          ]
+        },
+        {
+          "category": "Parsers, Store & Media Hardening",
+          "items": [
+            "Fixed sanitizeUsername on /embed/, /fullvideo/, /lists/, and /in/?room=<handle> URLs.",
+            "Fixed single-line CSV/text imports matching header keywords (e.g. 'username') and preserved second/subsequent columns on comma-separated plain handle lines.",
+            "Added spreadsheet formula-injection neutralization in CSV exports and preserved leading forward slashes on POSIX file:// thumbnail URIs.",
+            "Removed side effects from React setState updaters, added tier/sourceFilter undo restoration, request sequence guarding on live feed polling, duplicate username rejection with immediate notifications, and orphan thumbnail cleanup."
+          ]
+        },
+        {
+          "category": "Live Monitor, Sorter, Kanban, Grid & Modal UX",
+          "items": [
+            "Fixed Mute/Audio toggles interrupting active HLS playback in LiveStreamPlayer and invalidated stale roomStatus cache entries on show transitions.",
+            "Added Public Only vs All Live filtering for Watch Wall pulls plus graceful onError fallback avatars for broken grid thumbnails.",
+            "Fixed Rapid Sorter same-tier advancing across All Models/Inbox views, global Undo stack pollution on Sorter Undo, stale skippedIds cleanup, and draft-based Quick-Edit Username committing.",
+            "Fixed Kanban drag reordering when filters are active or dragging downward, prevented Escape from closing Tier Manager while recording hotkeys, kept Settings Advanced JSON editor synchronized, prevented duplicate-username saves from closing Model Editor, and paginated Data Grid."
+          ]
+        }
+      ]
+    },
+    {
+      "displayVersion": "v2.04",
+      "semver": "2.0.4",
+      "date": "2026-11-11",
+      "releaseType": "Minor Update",
+      "summary": "Switches WatchPulse live detection to a zero-config public CDN live index so every Watchlist shows active rooms immediately without any Affiliate wm key, adds a CBExplorer-style Watchlist Grid with auto-refreshing thumbnails and silent hover live previews, extracts pure HLS video-only streams via hls.js for zero-clutter playback, and adds direct CBExplorer list URL importing.",
+      "dataMigrationNote": "In-place update over v2.03 — preserves all saved models, tiers, hotkeys, notes, heatmaps, and Recycling Bin items, while upgrading untouched Affiliate default feeds without a wm code to the zero-config live feed and updating livePreview defaults with hide_logo=1.",
+      "changes": [
+        {
+          "category": "Zero-Config Live Detection & CBExplorer-Style Watchlist Grid",
+          "items": [
+            "Switched default live feed to CBExplorer's public CDN live rooms index (cbexplorer_users_online_v3.json) and added columnar + status-bucket decoders so Public, Private, Away, Hidden, viewer counts, and room subjects populate automatically with zero Affiliate wm setup.",
+            "Rebuilt Live Monitor's default view as a CBExplorer-style Watchlist Grid filtered by Watchlist/Tier and Public Live / All Online / All Models, featuring 15-second auto-refreshing live cam thumbnails and silent hover live video preview.",
+            "Added direct CBExplorer Watchlist URL importing (https://cbexplorer.com/lists/...) inside Import Models to pull entire lists cleanly into WatchPulse watchlists."
+          ]
+        },
+        {
+          "category": "Pure Embedded Video Stream Playback (HLS Video-Only)",
+          "items": [
+            "Added main-process stream metadata resolution paired with an hls.js HTML5 video player (LiveStreamPlayer) to stream pure video without webpage headers, logos, banners, or chat—backed by automatic WebView CSS isolation fallback.",
+            "Preserved unlimited Watch Wall Multiplay with Pull Online Only, per-tile Hide, Hidden Active restore chips, Re-add All Active, and Drop Offline controls without CBExplorer Hub."
+          ]
+        }
+      ]
+    },
+    {
+      "displayVersion": "v2.03",
+      "semver": "2.0.3",
+      "date": "2026-11-11",
+      "releaseType": "Minor Update",
+      "summary": "Removes the CBExplorer Hub portal tab from Live Monitor, upgrades the Silent Watch Wall to pull all online models without a 6-tile limit plus per-tile Hide and Re-add All Active controls, and isolates only the embedded livestream video player in both Stage and Watch Wall.",
+      "dataMigrationNote": "In-place update over v2.02 — preserves all WatchPulse models, tiers, hotkeys, Recycling Bin items, and thumbnails, while upgrading untouched legacy livePreview templates to include embed_video_only=1.",
+      "changes": [
+        {
+          "category": "Streamlined Watch Wall & Video-Only Isolation",
+          "items": [
+            "Removed CBExplorer Hub tab from Live Monitor while keeping Live Stream, Followed Cams (Detect Live), CBExplorer, and CBHours.",
+            "Upgraded Watch Wall to pull all currently online models only (removing the 6-tile cap) with responsive column density options (Auto, 2, 3, or 4 columns) and Drop Offline cleanup.",
+            "Added per-tile Hide buttons with a collapsible Hidden Active restore tray plus a one-click Re-add All Active button on the Watch Wall toolbar.",
+            "Added Video Only stream isolation across Live Stream Stage and Watch Wall tiles via embed_video_only=1 and CSP-safe Electron CSS video-player extraction (with a Video Only toggle pill)."
+          ]
+        }
+      ]
+    },
+    {
+      "displayVersion": "v2.02",
+      "semver": "2.0.2",
+      "date": "2026-11-11",
+      "releaseType": "Minor Update",
+      "summary": "Rebuilds Live Monitor around Only-Live filtering and per-Watchlist grouping, adds Followed Cams and one-click Detect Live from View DOM scanning against saved models, introduces inline Sort Watchlist tier pills and manual Mark Live toggles, and adds client_ip=request_ip plus 25-page fetching to the Affiliate onlinerooms feed.",
+      "dataMigrationNote": "In-place update over v2.0.1 — preserves all WatchPulse models, tiers, hotkeys, Recycling Bin items, and thumbnails, while upgrading untouched legacy onlinerooms endpoint templates to include client_ip=request_ip.",
+      "changes": [
+        {
+          "category": "Only-Live Filtering & Watchlist-Grouped Monitoring",
+          "items": [
+            "Added an Only Live filter toggle in Live Monitor (auto-activates when live models are present) paired with per-Watchlist/Tier grouping in the collapsible sidebar and horizontal Watchlist filter pills.",
+            "Added per-tier live counts and one-click Load to Wall actions so an entire live watchlist tier can be opened on the Multi-Tile Silent Watch Wall together.",
+            "Added inline Sort Watchlist tier pills, Next navigation, and manual Mark Live toggles directly above the blended Live Monitor stage."
+          ]
+        },
+        {
+          "category": "Followed Cams & View-Based Live Detection",
+          "items": [
+            "Added a Followed Cams source tab alongside CBExplorer Hub in Live Monitor plus a user-triggered Detect Live from View read-only DOM scan that matches visible rooms strictly against saved watchlist models.",
+            "Updated the default Chaturbate Affiliate onlinerooms template to include client_ip=request_ip, automatically migrating untouched default templates in existing configs, and raised Affiliate pagination support up to 25 pages (default 5)."
+          ]
+        }
+      ]
+    },
+    {
+      "displayVersion": "v2.01",
+      "semver": "2.0.1",
+      "date": "2026-11-11",
+      "releaseType": "Minor Update",
+      "summary": "Replaces the popup live-preview modal with a seamlessly blended in-app Live Stage and Multi-Tile Silent Watch Wall inside Live Monitor, removes unused API feed warning banners, and adds optional Authorization header support for custom/Statbate JSON feeds.",
+      "dataMigrationNote": "In-place update over v2.0.0 — preserves all WatchPulse models, tiers, hotkeys, Recycling Bin items, and thumbnails.",
+      "changes": [
+        {
+          "category": "Seamless Embedded Live Stage & Watch Wall",
+          "items": [
+            "Replaced SilentPreviewModal popup with a blended SeamlessWebView stage directly inside Live Monitor (zero URL bars, zero popup windows, zero external browser chrome, muted by default).",
+            "Added a Watchlist sidebar rail and Multi-Tile Silent Watch Wall (pin up to 6 models side-by-side or load an entire filtered tier with 1 click).",
+            "Clicking Silent View from Rapid Sorter, Kanban, or Data Grid now switches smoothly into the blended Live Monitor Stage with a Back button.",
+            "Removed intrusive warning banners when no Affiliate wm feed is configured and added an optional Authorization header field in Settings for custom or Statbate Plus JSON feeds."
+          ]
+        }
+      ]
+    },
+    {
+      "displayVersion": "v2",
+      "semver": "2.0.0",
+      "date": "2026-11-11",
+      "releaseType": "Major Feature Update & Rebrand",
+      "summary": "Rebrands ModelSort Studio to WatchPulse with a new Radar/Tier icon, and introduces Live Monitor with Silent Live View, periodic tier re-sort workflows, local 7x24 activity heatmaps, a defined 45-day Recycling Bin lifecycle, under-the-hood settings, and username underscore preservation.",
+      "dataMigrationNote": "Automatically migrates v1 ModelSort Studio data (%APPDATA%\\modelsort-studio\\modelsort-data.json and thumbnails) into WatchPulse (%APPDATA%\\watchpulse\\watchpulse-data.json) and upgrades schemas to v2 in place (repairing stripped leading/trailing underscores or hyphens while preserving all existing records).",
+      "changes": [
+        {
+          "category": "Bug Fixes",
+          "items": [
+            "Preserved leading and trailing underscores and hyphens in sanitizeUsername (e.g., _bamby_baby_ and yvie_ now stay intact across display handles, clean usernames, and automated CBHours/CBExplorer/ArchiveBate URLs).",
+            "Added one-time v1-to-v2 data repair on startup to restore stripped edge underscores/hyphens from originalLink or displayName on existing saved models."
+          ]
+        },
+        {
+          "category": "Live Monitor & Silent Live View (Ctrl+4)",
+          "items": [
+            "Added Live Monitor view displaying online/public/private/offline totals, per-tier live breakdowns, viewer counts, HD indicators, room topics, and Last Seen Live timestamps.",
+            "Added Silent Live View modal using an isolated Electron webview muted by default at the Chromium main-process level, with Live Stream Embed, CBExplorer, and CBHours Stats tabs plus an audio mute/unmute toggle.",
+            "Added CORS-free JSON live-feed polling via Electron main process IPC (live:fetchJson)."
+          ]
+        },
+        {
+          "category": "Periodic Tier Re-Sort & Activity Heatmap",
+          "items": [
+            "Tracked lastReviewedAt and lastSeenLiveAt timestamps per model with configurable per-tier and global review cadence days plus stale offline thresholds.",
+            "Added Due for Re-sort queue filter and Confirm & Keep hotkey behavior in Rapid Sorter (pressing the current tier hotkey marks a model reviewed and advances).",
+            "Added local 30-day presence logging (presenceHours) and a 7x24 Usually Active Heatmap in Model Editor alongside optional CBHours pinned stats fields."
+          ]
+        },
+        {
+          "category": "Model Addition & 45-Day Recycling Bin Lifecycle",
+          "items": [
+            "Added Add & Add Another workflow and Recycling Bin duplicate detection with 1-click restore in Import / Add Modal.",
+            "Replaced native browser confirm() prompts with a dark-themed in-app Delete Confirmation Modal offering Move to Recycling Bin or Move to Inactive tier.",
+            "Added a 45-day Recycling Bin modal accessible from the top navigation bar with remaining-days countdown, 1-click Restore, manual Purge, Empty Bin, automatic startup expiry purge, and disk cleanup for orphaned local thumbnails."
+          ]
+        },
+        {
+          "category": "Rebrand & Visual Identity",
+          "items": [
+            "Rebranded application from ModelSort Studio to WatchPulse with a custom Watchlist Radar Eye + Priority Tier Bars emblem across window titlebars, top navigation, and Windows .ico/.png icons.",
+            "Added automatic first-run migration from legacy %APPDATA%\\modelsort-studio data and thumbnails into %APPDATA%\\watchpulse."
+          ]
+        },
+        {
+          "category": "Under-the-Hood Settings & Update Policy",
+          "items": [
+            "Expanded Settings into 4 tabs: General & Shortcuts, Live Monitor & Re-Sort, URL Templates, and Under the Hood.",
+            "Exposed editable {username} URL templates, Affiliate wm and API endpoint templates, Test Feed Connection diagnostics, batch Re-sanitize Usernames, Mark All Reviewed Today, and an interactive Internal JSON Tweaker.",
+            "Configured update-in-place NSIS installer behavior (deleteAppDataOnUninstall: false) and automated CHANGELOG.docx generation."
+          ]
+        }
+      ]
+    },
+    {
+      "displayVersion": "v1",
+      "semver": "1.0.0",
+      "date": "2026-11-10",
+      "releaseType": "Initial Release",
+      "summary": "First standalone Windows release of ModelSort Studio built with Electron, Vite, React, TypeScript, and Tailwind CSS.",
+      "dataMigrationNote": "Initializes local atomic JSON persistence (modelsort-data.json + modelsort-data.bak.json) in %APPDATA%\\modelsort-studio.",
+      "changes": [
+        {
+          "category": "Core Capabilities",
+          "items": [
+            "Dynamic Tier & Category Manager with add, rename, drag/arrow reorder, color coding, custom hotkey recording, safe deletion reassignment, and customizable Unsorted / Inbox state.",
+            "CSV/TSV and clipboard ingestion with PapaParse, regex username sanitization, duplicate handling, and automated CBHours, CBExplorer, and ArchiveBate link generation.",
+            "Three synchronized working views: Rapid Sorter (hotkey deck, Space skip, Z/Backspace undo, Quick-Edit inspector), Drag-and-Drop Kanban Board, and searchable/filterable Master Data Grid with bulk operations.",
+            "Card media customization (image URL or copied local thumbnail served via local-media://), custom recording links, tags, and activity notes.",
+            "Export Studio for enriched CSV, formatted JSON backup, and tier-grouped plain-text summaries, packaged as Windows Portable and NSIS Setup executables."
+          ]
+        }
+      ]
+    }
+  ]
+}

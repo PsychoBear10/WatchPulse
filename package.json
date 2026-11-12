@@ -1,0 +1,99 @@
+{
+  "name": "watchpulse",
+  "version": "2.0.9",
+  "description": "WatchPulse — Live Chaturbate Cam Monitor, Silent Preview, Rapid Triage & Kanban Studio",
+  "main": "dist-electron/main.js",
+  "author": "WatchPulse",
+  "license": "CC0-1.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PsychoBear10/WatchPulse.git"
+  },
+  "homepage": "https://github.com/PsychoBear10/WatchPulse#readme",
+  "scripts": {
+    "dev:vite": "vite --port 5173 --strictPort",
+    "dev:electron": "tsc -p tsconfig.electron.json && wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .",
+    "dev": "concurrently -k \"npm.cmd run dev:vite\" \"npm.cmd run dev:electron\"",
+    "build:renderer": "tsc -p tsconfig.json --noEmit && vite build",
+    "build:electron": "tsc -p tsconfig.electron.json",
+    "build": "npm.cmd run build:electron && npm.cmd run build:renderer",
+    "test": "node scripts/run-tests.mjs",
+    "changelog": "node scripts/generate-changelog.mjs",
+    "preview:electron": "npm.cmd run build && electron .",
+    "dist": "npm.cmd run changelog && npm.cmd run build && electron-builder --win",
+    "dist:nsis": "npm.cmd run changelog && npm.cmd run build && electron-builder --win nsis",
+    "dist:portable": "npm.cmd run changelog && npm.cmd run build && electron-builder --win portable",
+    "dist:dir": "npm.cmd run build && electron-builder --win --dir"
+  },
+  "dependencies": {
+    "hls.js": "^1.7.4",
+    "lucide-react": "^0.475.0",
+    "papaparse": "^5.5.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/papaparse": "^5.3.15",
+    "@types/react": "^18.3.1",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "concurrently": "^9.1.2",
+    "cross-env": "^7.0.3",
+    "docx": "^9.15.3",
+    "electron": "^34.3.0",
+    "electron-builder": "^25.1.8",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.3",
+    "vite": "^6.0.11",
+    "wait-on": "^8.0.2"
+  },
+  "build": {
+    "appId": "com.modelsort.studio",
+    "productName": "WatchPulse",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "build/icon.png",
+      "package.json",
+      "!node_modules/**/*"
+    ],
+    "asar": true,
+    "win": {
+      "signAndEditExecutable": false,
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "artifactName": "${productName}-${version}-${arch}-${target}.${ext}"
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-Portable.exe"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "artifactName": "${productName}-${version}-Setup.exe"
+    }
+  }
+}

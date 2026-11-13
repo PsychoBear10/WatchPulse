@@ -16,6 +16,7 @@ import {
   InboxConfig,
   LiveRoomInfo,
   ModelRecord,
+  ThemeMode,
   TierDefinition,
   ToastNotice,
   UndoEntry,
@@ -180,6 +181,7 @@ interface AppContextValue {
   reorderTiers: (orderedIds: string[]) => void;
   deleteTier: (id: string, reassignToTierId: string) => void;
   updateSettings: (patch: Partial<AppSettings>) => void;
+  setThemeMode: (mode: ThemeMode) => void;
   restoreBackupData: (rawData: AppData) => void;
   loadDemoModels: () => number;
 }
@@ -1070,6 +1072,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     [commitData]
   );
 
+  const setThemeMode = useCallback(
+    (mode: ThemeMode) => {
+      updateSettings({ themeMode: mode });
+    },
+    [updateSettings]
+  );
+
+  useEffect(() => {
+    const mode = data.settings.themeMode || 'dark';
+    document.documentElement.setAttribute('data-theme', mode);
+  }, [data.settings.themeMode]);
+
   const restoreBackupData = useCallback(
     (rawData: AppData) => {
       const sanitized = sanitizeClientAppData(rawData);
@@ -1704,6 +1718,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       reorderTiers,
       deleteTier,
       updateSettings,
+      setThemeMode,
       restoreBackupData,
       loadDemoModels,
     }),
@@ -1748,6 +1763,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       reorderTiers,
       deleteTier,
       updateSettings,
+      setThemeMode,
       restoreBackupData,
       loadDemoModels,
     ]

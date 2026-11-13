@@ -1063,3 +1063,31 @@ test('v2.07 Watchlist Grid & Watch Wall prioritize higher playlist tiers over vi
     ]
   );
 });
+
+test('v3.0.0 ThemeMode sanitization and settings persistence', () => {
+  const defaultData = createDefaultAppData();
+  assert.equal(defaultData.settings.themeMode, 'dark');
+
+  // Verify valid theme modes
+  const darkSanitized = sanitizeClientSettings({ themeMode: 'dark' });
+  assert.equal(darkSanitized.themeMode, 'dark');
+
+  const greySanitized = sanitizeClientSettings({ themeMode: 'grey' });
+  assert.equal(greySanitized.themeMode, 'grey');
+
+  const lightSanitized = sanitizeClientSettings({ themeMode: 'light' });
+  assert.equal(lightSanitized.themeMode, 'light');
+
+  // Verify invalid theme modes fallback safely to 'dark'
+  const invalidSanitized = sanitizeClientSettings({ themeMode: 'neon' as any });
+  assert.equal(invalidSanitized.themeMode, 'dark');
+
+  const storageSanitized = sanitizeAppData({
+    ...defaultData,
+    settings: {
+      ...defaultData.settings,
+      themeMode: 'grey',
+    },
+  });
+  assert.equal(storageSanitized.settings.themeMode, 'grey');
+});

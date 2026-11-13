@@ -99,6 +99,7 @@ export function createDefaultAppData(): AppData {
       trashRetentionDays: 45,
       urlTemplates: { ...DEFAULT_URL_TEMPLATES },
       liveFeed: { ...DEFAULT_LIVE_FEED },
+      themeMode: 'dark',
     },
   };
 }

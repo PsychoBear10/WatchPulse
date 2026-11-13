@@ -1,6 +1,6 @@
 {
   "name": "watchpulse",
-  "version": "2.0.9",
+  "version": "3.0.0",
   "description": "WatchPulse — Live Chaturbate Cam Monitor, Silent Preview, Rapid Triage & Kanban Studio",
   "main": "dist-electron/main.js",
   "author": "WatchPulse",
@@ -18,6 +18,7 @@
     "build:electron": "tsc -p tsconfig.electron.json",
     "build": "npm.cmd run build:electron && npm.cmd run build:renderer",
     "test": "node scripts/run-tests.mjs",
+    "sync:github": "node scripts/sync-github.mjs",
     "changelog": "node scripts/generate-changelog.mjs",
     "preview:electron": "npm.cmd run build && electron .",
     "dist": "npm.cmd run changelog && npm.cmd run build && electron-builder --win",

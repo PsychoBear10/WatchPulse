@@ -148,7 +148,6 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
   const [search, setSearch] = useState('');
   const [tierFilter, setTierFilter] = useState<string>('all');
   const [onlyLive, setOnlyLive] = useState(false);
-  const [usuallyNowOnly, setUsuallyNowOnly] = useState(false);
   const [dueOnly, setDueOnly] = useState(false);
   const [scheduleHourKey, setScheduleHourKey] = useState(() => new Date().getHours());
   const [collapsedTiers, setCollapsedTiers] = useState<Set<string>>(new Set());
@@ -356,7 +355,6 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
       const filteredItems = allInTier
         .filter((item) => {
           if (onlyLive && !item.live) return false;
-          if (usuallyNowOnly && !item.usuallyNow.isUsuallyLiveNow) return false;
           if (dueOnly && !item.isDue) return false;
           return matchesQuery(item.model, item.live);
         })
@@ -365,18 +363,12 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
           if (a.live && b.live && b.live.numUsers !== a.live.numUsers) {
             return b.live.numUsers - a.live.numUsers;
           }
-          if (
-            usuallyNowOnly &&
-            b.usuallyNow.scoreMinutes !== a.usuallyNow.scoreMinutes
-          ) {
-            return b.usuallyNow.scoreMinutes - a.usuallyNow.scoreMinutes;
-          }
           return a.model.order - b.model.order;
         });
 
       if (
         filteredItems.length === 0 &&
-        (onlyLive || usuallyNowOnly || dueOnly || q)
+        (onlyLive || dueOnly || q)
       ) {
         continue;
       }
@@ -400,7 +392,6 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
     search,
     sortedTiers,
     tierFilter,
-    usuallyNowOnly,
   ]);
 
   const flatVisibleModels = useMemo(
@@ -692,13 +683,7 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
             <div className="flex items-center justify-between gap-2">
               <button
                 type="button"
-                onClick={() =>
-                  setOnlyLive((prev) => {
-                    const next = !prev;
-                    if (next) setUsuallyNowOnly(false);
-                    return next;
-                  })
-                }
+                onClick={() => setOnlyLive((prev) => !prev)}
                 className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
                   onlyLive
                     ? 'bg-emerald-500/20 text-emerald-200 border-emerald-500/45 shadow-[0_0_14px_-4px_rgba(16,185,129,0.5)]'
@@ -716,26 +701,6 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
               </button>
 
               <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setUsuallyNowOnly((prev) => {
-                      const next = !prev;
-                      if (next) setOnlyLive(false);
-                      return next;
-                    })
-                  }
-                  title="Filter to models whose 30-day schedule usually aligns around your current local hour (+/- 1h)"
-                  className={`inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-[10px] font-semibold border transition-colors ${
-                    usuallyNowOnly
-                      ? 'bg-sky-500/25 text-sky-200 border-sky-400/50'
-                      : 'bg-sky-500/10 text-sky-300 border-sky-500/25 hover:bg-sky-500/20'
-                  }`}
-                >
-                  <Clock className="w-3 h-3" />
-                  {totalUsuallyNowCount}
-                </button>
-
                 {totalDueCount > 0 && (
                   <button
                     type="button"
@@ -890,7 +855,6 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
                     type="button"
                     onClick={() => {
                       setOnlyLive(false);
-                      setUsuallyNowOnly(false);
                       setDueOnly(false);
                       setTierFilter('all');
                       setSearch('');
@@ -1000,12 +964,12 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
                                     <span className="text-xs font-medium text-white truncate">
                                       {model.displayName || model.username}
                                     </span>
-                                    {!live && usuallyNow.isUsuallyLiveNow && (
+                                    {usuallyNow.isUsuallyLiveNow && (
                                       <span
-                                        title={usuallyNow.label}
-                                        className="px-1 rounded text-[9px] font-semibold bg-sky-500/20 text-sky-200 border border-sky-400/30 shrink-0"
+                                        title={`${usuallyNow.label} (${usuallyNow.confidencePct}% 30-day match)`}
+                                        className="px-1.5 py-0.2 rounded text-[9px] font-semibold bg-sky-500/20 text-sky-200 border border-sky-400/30 shrink-0"
                                       >
-                                        Usual
+                                        Usual · {usuallyNow.confidencePct}%
                                       </span>
                                     )}
                                     {isDue && (
@@ -1671,17 +1635,18 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
                                 )}
                                 {statusMeta.label}
                               </span>
-                            ) : !live && usuallyNow.isUsuallyLiveNow ? (
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-black/75 text-slate-400 border border-white/10">
+                                OFFLINE
+                              </span>
+                            )}
+                            {usuallyNow.isUsuallyLiveNow && (
                               <span
-                                title={usuallyNow.label}
+                                title={`${usuallyNow.label} (${usuallyNow.confidencePct}% match)`}
                                 className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border backdrop-blur-sm bg-sky-500/25 text-sky-200 border-sky-400/40"
                               >
                                 <Clock className="w-2.5 h-2.5" />
                                 USUALLY NOW · {usuallyNow.confidencePct}%
-                              </span>
-                            ) : (
-                              <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-black/75 text-slate-400 border border-white/10">
-                                OFFLINE
                               </span>
                             )}
                             {live && live.numUsers > 0 && (

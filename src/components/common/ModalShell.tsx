@@ -38,14 +38,14 @@ export const ModalShell: React.FC<ModalShellProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-md transition-all"
       onClick={onClose}
     >
       <div
-        className={`w-full ${maxWidthClass} max-h-[88vh] flex flex-col bg-[#11141D] border border-white/15 rounded-2xl shadow-2xl overflow-hidden animate-card-enter`}
+        className={`w-full ${maxWidthClass} max-h-[88vh] flex flex-col liquid-glass-card rounded-2xl shadow-elevation overflow-hidden animate-card-enter`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4 px-6 py-4 border-b border-white/[0.08] bg-[#141824]">
+        <div className="flex items-start justify-between gap-4 px-6 py-4 border-b border-white/[0.08] liquid-glass-header">
           <div>
             <h2 className="text-base font-semibold text-white">{title}</h2>
             {subtitle && (
@@ -65,7 +65,7 @@ export const ModalShell: React.FC<ModalShellProps> = ({
         <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>
 
         {footer && (
-          <div className="px-6 py-3.5 border-t border-white/[0.08] bg-[#0E1119] flex items-center justify-end gap-2.5">
+          <div className="px-6 py-3.5 border-t border-white/[0.08] liquid-glass-header flex items-center justify-end gap-2.5">
             {footer}
           </div>
         )}

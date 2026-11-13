@@ -137,6 +137,12 @@ export function sanitizeClientSettings(
           ? liveFeedRaw.autoRefreshSnapshots
           : DEFAULT_LIVE_FEED.autoRefreshSnapshots,
     },
+    themeMode:
+      settingsRaw.themeMode === 'light' ||
+      settingsRaw.themeMode === 'grey' ||
+      settingsRaw.themeMode === 'dark'
+        ? settingsRaw.themeMode
+        : fallbackSettings.themeMode ?? 'dark',
   };
 }
 

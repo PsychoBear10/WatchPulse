@@ -6,6 +6,7 @@ import {
   LiveFeedConfig,
   ManualActivityStats,
   ModelRecord,
+  ThemeMode,
   UrlTemplates,
 } from './types';
 
@@ -111,6 +112,7 @@ export function createDefaultAppData(): AppData {
       trashRetentionDays: 45,
       urlTemplates: { ...DEFAULT_URL_TEMPLATES },
       liveFeed: { ...DEFAULT_LIVE_FEED },
+      themeMode: 'dark',
     },
   };
 }
@@ -500,6 +502,11 @@ export function sanitizeAppData(raw: unknown): AppData {
           ? liveFeedRaw.autoRefreshSnapshots
           : DEFAULT_LIVE_FEED.autoRefreshSnapshots,
     },
+    themeMode: (settingsRaw.themeMode === 'light' ||
+      settingsRaw.themeMode === 'grey' ||
+      settingsRaw.themeMode === 'dark'
+        ? settingsRaw.themeMode
+        : 'dark') as ThemeMode,
   };
 
   const version =

@@ -2,16 +2,20 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   Activity,
   CheckCircle2,
+  CircleDot,
   Code2,
   FolderOpen,
   HardDrive,
   Keyboard,
   Link2,
+  Moon,
+  Palette,
   Radio,
   RotateCcw,
   Sliders,
   SlidersHorizontal,
   Sparkles,
+  Sun,
   Wrench,
 } from 'lucide-react';
 import {
@@ -203,6 +207,69 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {/* Tab 1: General & Shortcuts */}
         {tab === 'general' && (
           <div className="space-y-5">
+            {/* Appearance & Theme (Dark, Grey, Light) */}
+            <div className="p-4 rounded-xl liquid-glass border border-white/[0.08] space-y-3">
+              <div className="flex items-center gap-2">
+                <Palette className="w-4 h-4 text-indigo-400" />
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+                  Appearance &amp; Theme
+                </h3>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Choose between Deep Obsidian Dark, Frosted Grey, or Modern Light mode with Apple liquid glass materials.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                {(
+                  [
+                    {
+                      id: 'dark',
+                      label: 'Dark Mode',
+                      desc: 'Deep obsidian acrylic',
+                      icon: Moon,
+                    },
+                    {
+                      id: 'grey',
+                      label: 'Grey Mode',
+                      desc: 'Subtle slate studio glass',
+                      icon: CircleDot,
+                    },
+                    {
+                      id: 'light',
+                      label: 'Light Mode',
+                      desc: 'Bright high-contrast liquid',
+                      icon: Sun,
+                    },
+                  ] as const
+                ).map(({ id, label, desc, icon: Icon }) => {
+                  const active = (data.settings.themeMode ?? 'dark') === id;
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => updateSettings({ themeMode: id })}
+                      className={`flex flex-col items-start gap-1 p-3 rounded-xl border text-left transition-all ${
+                        active
+                          ? 'border-indigo-400/80 bg-indigo-500/15 shadow-[0_0_16px_rgba(99,102,241,0.25)] ring-1 ring-indigo-400/50'
+                          : 'border-white/10 bg-black/20 hover:bg-white/[0.04] hover:border-white/20'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Icon
+                          className={`w-4 h-4 ${
+                            active ? 'text-indigo-300' : 'text-slate-400'
+                          }`}
+                        />
+                        <span className="text-xs font-semibold text-white">
+                          {label}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-slate-400">{desc}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             <div className="p-4 rounded-xl bg-black/30 border border-white/[0.08] space-y-3">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-300">
                 Workflow Preferences

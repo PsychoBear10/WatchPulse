@@ -67,6 +67,8 @@ export interface LiveFeedConfig {
   autoRefreshSnapshots: boolean;
 }
 
+export type ThemeMode = 'dark' | 'grey' | 'light';
+
 export interface AppSettings {
   confirmDelete: boolean;
   deckSourceFilter: string;
@@ -76,6 +78,7 @@ export interface AppSettings {
   trashRetentionDays: number;
   urlTemplates: UrlTemplates;
   liveFeed: LiveFeedConfig;
+  themeMode?: ThemeMode;
 }
 
 export interface AppData {

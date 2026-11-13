@@ -2,7 +2,7 @@
 ### Live Chaturbate Cam Monitor, Silent Preview & Rapid Triage Studio
 
 [![License: CC0-1.0](https://img.shields.io/badge/License-CC0_1.0-lightgrey.svg)](https://creativecommons.org/publicdomain/zero/1.0/)
-[![First Public Release](https://img.shields.io/badge/Release-v2.0.9%20(First%20Public)-brightgreen.svg)](https://github.com/PsychoBear10/WatchPulse/releases/latest)
+[![Latest Release](https://img.shields.io/badge/Release-v3.0.0-brightgreen.svg)](https://github.com/PsychoBear10/WatchPulse/releases/latest)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-18-61dafb.svg)](https://react.dev/)
 [![Electron](https://img.shields.io/badge/Electron-34-47848f.svg)](https://www.electronjs.org/)
@@ -14,28 +14,27 @@
 
 ## 🚀 Download & Installation
 
-**WatchPulse v2.0.9 marks the official first public release!** 
-
-While versioned at `v2.0.9` to reflect its extensive internal iteration and preserve backward compatibility with earlier private builds (*formerly ModelSort Studio*), this is the first hardened, public release available to everyone.
+**Latest Release: WatchPulse v3.0.0** (Major update featuring an Apple-style liquid glass design, three-way theme switcher, and keyboard Kanban search).
 
 ### Windows Download:
-1. Head to the **[Latest Release (v2.0.9)](https://github.com/PsychoBear10/WatchPulse/releases/latest)** page.
+1. Head to the **[Latest Release (v3.0.0)](https://github.com/PsychoBear10/WatchPulse/releases/latest)** page.
 2. Download:
-   - **`WatchPulse-2.0.9-Setup.exe`** — Recommended Windows installer with desktop shortcut and automated in-place data preservation.
-   - **`WatchPulse-2.0.9-Portable.exe`** — Standalone, zero-install portable executable.
+   - **`WatchPulse-3.0.0-Setup.exe`** — Recommended Windows installer with desktop shortcut and automated in-place data preservation.
+   - **`WatchPulse-3.0.0-Portable.exe`** — Standalone, zero-install portable executable.
 3. Run the installer and launch WatchPulse. All data is kept 100% offline, local, and private.
 
 ---
 
 ## Key Features
 
+- **Liquid Glass UI & Three-Way Theme Switcher:** macOS/visionOS-inspired frosted acrylic aesthetic with squircle containers and top-edge specular glints. Switch seamlessly between **Dark** (Midnight Obsidian), **Grey** (Space Gray Studio), and **Light** (Ice Glass).
 - **Live Monitor & Silent Live View (`Ctrl+4`):** Track online, public, private, and offline status counts per tier. View real-time room topics and viewer counts, with an isolated, muted Electron `<webview>` preview featuring `Live Stream Embed`, `CBExplorer`, and `CBHours Stats` tabs.
-- **Periodic Re-Sort & 7×24 Activity Heatmap:** Track `lastReviewedAt` and `lastSeenLiveAt`, set per-tier review cadences, filter Rapid Sorter by **Due for Re-sort**, and view locally logged 30-day active hours alongside 7×24 activity heatmaps.
+- **Periodic Re-Sort & 7×24 Activity Heatmap:** Track `lastReviewedAt` and `lastSeenLiveAt`, set per-tier review cadences, filter Rapid Sorter by **Due for Re-sort**, view locally logged 30-day active hours alongside 7×24 activity heatmaps, and see live **Usual · {confidencePct}%** schedule badges.
 - **Dynamic Tier & Category Manager (No Hardcoded Lists):** Create, rename, reorder (drag or arrow buttons), color-code, assign single-key hotkeys, and safely delete custom tiers. Customize the default **Unsorted / Inbox** state.
 - **CSV Import, Clipboard Paste & Regex Sanitizer:** Ingest `Model Name` / `Original Link` CSVs, TSVs, or plain username/URL lists while preserving leading/trailing underscores and hyphens (`_bamby_baby_`, `yvie_`). Automatically generates `CBHours`, `CBExplorer`, and `ArchiveBate` links.
 - **Three Synchronized Views:**
   - **Rapid Sorter:** Hotkey deck sorting, `Space` to skip, `Z`/`Backspace` undo, and quick-edit model inspector.
-  - **Kanban Board:** Multi-column drag-and-drop workflow with real-time online status badges.
+  - **Kanban Board:** Multi-column drag-and-drop workflow with real-time online status badges, fast keyboard search (<kbd>Ctrl+F</kbd> / <kbd>/</kbd>), match counter, and <kbd>Enter</kbd> card jump.
   - **Master Data Grid:** Deep search, multi-field filtering, inline editing, and bulk actions.
 - **45-Day Recycling Bin & Local-First Persistence:** Atomically persisted local JSON storage (`watchpulse-data.json` + `.bak.json` in `%APPDATA%\watchpulse`, with automatic migration from legacy `%APPDATA%\modelsort-studio`) and local thumbnail caching (`local-media://`). Deleted models remain recoverable in the Recycling Bin for 45 days before automatic purge.
 

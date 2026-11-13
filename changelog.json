@@ -7,6 +7,38 @@
   },
   "releases": [
     {
+      "displayVersion": "v3",
+      "semver": "3.0.0",
+      "date": "2026-11-13",
+      "releaseType": "Major Update",
+      "summary": "Major visual and functional update introducing an Apple-style rounded liquid glass UI, bespoke iridescent aperture logo, three-way theme switcher (Dark, Grey, Light), keyboard-driven Kanban board search, and always-visible 'Usual' schedule tags with live confidence percentages.",
+      "dataMigrationNote": "Major version upgrade to v3 / 3.0.0 — fully backward-compatible with v2.x and v1.x databases. Preserves all models, custom tiers, hotkeys, thumbnails, and Recycling Bin history.",
+      "changes": [
+        {
+          "category": "Apple-Style Rounded Liquid Glass UI & Design System",
+          "items": [
+            "Redesigned the studio with macOS Sonoma and visionOS-inspired liquid glass aesthetics, featuring frosted acrylic backdrops, top-edge specular glints, soft depth shadows, and continuous squircle corners.",
+            "Crafted a bespoke vector logo for WatchPulse with an iridescent iris pulse wave, glowing sensor pupil, and multi-layered glass reflections.",
+            "Introduced an Apple 3-position segmented theme switcher in TopNav and Settings supporting Dark Mode (Midnight Obsidian), Grey Mode (Space Gray Studio), and Light Mode (Ice Glass) with high-contrast legibility."
+          ]
+        },
+        {
+          "category": "Kanban Board Quick Search & Keyboard Navigation",
+          "items": [
+            "Added an integrated search bar to Kanban Board with Ctrl+F and / shortcuts to quickly locate models across usernames, display labels, notes, and tags.",
+            "Included a live match pill counter, quick-clear button, and Enter key jump that smoothly scrolls to matching cards and triggers an attention-grabbing glow ring."
+          ]
+        },
+        {
+          "category": "Schedule Prediction & Live Monitor Refinements",
+          "items": [
+            "Unconditionally displays the 'Usual · {confidencePct}%' schedule badge in the Live Monitor sidebar and Watchlist Grid whenever a model falls within their habitual streaming window, regardless of whether they are currently live or offline.",
+            "Removed the redundant sidebar 'usually live' filter button to further streamline and declutter monitor navigation."
+          ]
+        }
+      ]
+    },
+    {
       "displayVersion": "v2.09",
       "semver": "2.0.9",
       "date": "2026-11-12",

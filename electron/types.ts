@@ -67,10 +67,13 @@ export interface LiveFeedConfig {
   autoRefreshSnapshots: boolean;
 }
 
+export type ThemeMode = 'dark' | 'grey' | 'light';
+
 export interface AppSettings {
   confirmDelete: boolean;
   deckSourceFilter: string;
   showKeyboardHints: boolean;
+  themeMode?: ThemeMode;
   defaultReviewCadenceDays: number;
   staleOfflineDays: number;
   trashRetentionDays: number;

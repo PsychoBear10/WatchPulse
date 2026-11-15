@@ -7,6 +7,7 @@ import {
   Menu,
   net,
   protocol,
+  screen,
   shell,
 } from 'electron';
 import * as crypto from 'node:crypto';
@@ -22,6 +23,8 @@ import {
   LiveStreamResolveResult,
   OpenFileResult,
   OpenImageResult,
+  PipParams,
+  PipState,
   SaveFileResult,
 } from './types';
 
@@ -61,11 +64,23 @@ function getThumbnailsDir(): string {
 }
 
 function getBuildIconPath(): string | undefined {
-  const candidates = [
-    path.join(__dirname, '..', 'build', 'icon.png'),
-    path.join(process.resourcesPath || '', 'build', 'icon.png'),
+  const isWin = process.platform === 'win32';
+  const iconNames = isWin ? ['icon.ico', 'icon.png'] : ['icon.png', 'icon.ico'];
+  const baseDirs = [
+    path.join(__dirname, '..', 'build'),
+    path.join(process.resourcesPath || '', 'build'),
+    path.join(__dirname, '..', 'dist'),
+    path.join(process.resourcesPath || '', 'dist'),
   ];
-  return candidates.find((p) => p && fsSync.existsSync(p));
+  for (const dir of baseDirs) {
+    for (const name of iconNames) {
+      const candidate = path.join(dir, name);
+      if (fsSync.existsSync(candidate)) {
+        return candidate;
+      }
+    }
+  }
+  return undefined;
 }
 
 function isAllowedAppNavigation(targetUrl: string): boolean {
@@ -80,7 +95,145 @@ function isAllowedAppNavigation(targetUrl: string): boolean {
 }
 
 let mainWindow: BrowserWindow | null = null;
+let pipWindow: BrowserWindow | null = null;
+let currentPipUsername: string | null = null;
 let storageService: JsonStorageService | null = null;
+
+function broadcastPipState(): void {
+  const state: PipState = {
+    isOpen: Boolean(pipWindow && !pipWindow.isDestroyed()),
+    username: currentPipUsername,
+  };
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('pip:stateChanged', state);
+  }
+}
+
+function openPipWindow(params: PipParams): PipState {
+  const isDev = process.env.NODE_ENV === 'development';
+  const cleanUsername = String(params.username || '').trim().toLowerCase();
+  if (!cleanUsername) {
+    return { isOpen: false, username: null };
+  }
+
+  const queryParams = new URLSearchParams({
+    pip: '1',
+    username: cleanUsername,
+    muted: params.muted ? '1' : '0',
+    videoOnly: params.videoOnly !== false ? '1' : '0',
+    ...(params.embedTemplate ? { embedTemplate: params.embedTemplate } : {}),
+  });
+  const queryString = queryParams.toString();
+
+  if (pipWindow && !pipWindow.isDestroyed()) {
+    currentPipUsername = cleanUsername;
+    pipWindow.setTitle(`WatchPulse PiP — ${cleanUsername}`);
+    pipWindow.webContents.send('pip:navigate', {
+      username: cleanUsername,
+      muted: Boolean(params.muted),
+      videoOnly: params.videoOnly !== false,
+      embedTemplate: params.embedTemplate,
+    });
+    if (pipWindow.isMinimized()) pipWindow.restore();
+    pipWindow.show();
+    broadcastPipState();
+    return { isOpen: true, username: cleanUsername };
+  }
+
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const targetDisplay =
+    mainWindow && !mainWindow.isDestroyed()
+      ? screen.getDisplayNearestPoint(mainWindow.getBounds())
+      : primaryDisplay;
+  const workArea = targetDisplay.workArea;
+
+  const width = 480;
+  const height = 295;
+  const x = Math.round(workArea.x + workArea.width - width - 24);
+  const y = Math.round(workArea.y + workArea.height - height - 24);
+
+  pipWindow = new BrowserWindow({
+    width,
+    height,
+    minWidth: 320,
+    minHeight: 200,
+    x,
+    y,
+    title: `WatchPulse PiP — ${cleanUsername}`,
+    backgroundColor: '#090B10',
+    frame: false,
+    alwaysOnTop: true,
+    resizable: true,
+    skipTaskbar: false,
+    show: false,
+    icon: getBuildIconPath(),
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      webviewTag: true,
+    },
+  });
+
+  currentPipUsername = cleanUsername;
+
+  try {
+    pipWindow.setAlwaysOnTop(true, 'screen-saver');
+  } catch {
+    pipWindow.setAlwaysOnTop(true);
+  }
+
+  pipWindow.webContents.on('will-attach-webview', (event, webPreferences, p) => {
+    delete webPreferences.preload;
+    webPreferences.nodeIntegration = false;
+    webPreferences.contextIsolation = true;
+    if (!p.src || !isSafeExternalUrl(p.src)) {
+      event.preventDefault();
+    }
+  });
+
+  pipWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (isSafeExternalUrl(url)) {
+      void shell.openExternal(url);
+    }
+    return { action: 'deny' };
+  });
+
+  pipWindow.once('ready-to-show', () => {
+    if (pipWindow && !pipWindow.isDestroyed()) {
+      pipWindow.show();
+    }
+  });
+
+  pipWindow.on('closed', () => {
+    pipWindow = null;
+    currentPipUsername = null;
+    broadcastPipState();
+  });
+
+  if (isDev) {
+    void pipWindow.loadURL(`http://localhost:5173?${queryString}`);
+  } else {
+    void pipWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'), {
+      search: `?${queryString}`,
+    });
+  }
+
+  broadcastPipState();
+  return { isOpen: true, username: cleanUsername };
+}
+
+function closePipWindow(): boolean {
+  if (pipWindow && !pipWindow.isDestroyed()) {
+    pipWindow.close();
+    pipWindow = null;
+    currentPipUsername = null;
+    broadcastPipState();
+    return true;
+  }
+  return false;
+}
 
 function createWindow(): void {
   const isDev = process.env.NODE_ENV === 'development';
@@ -154,6 +307,9 @@ function createWindow(): void {
   }
 
   mainWindow.on('closed', () => {
+    if (pipWindow && !pipWindow.isDestroyed()) {
+      pipWindow.close();
+    }
     mainWindow = null;
   });
 }
@@ -570,6 +726,38 @@ function registerIpcHandlers(): void {
       }
     }
   );
+
+  ipcMain.handle('pip:open', async (_event, params: PipParams): Promise<PipState> => {
+    return openPipWindow(params);
+  });
+
+  ipcMain.handle('pip:close', async (): Promise<boolean> => {
+    return closePipWindow();
+  });
+
+  ipcMain.handle('pip:toggle', async (_event, params: PipParams): Promise<PipState> => {
+    const clean = String(params?.username || '').trim().toLowerCase();
+    if (pipWindow && !pipWindow.isDestroyed() && currentPipUsername === clean) {
+      closePipWindow();
+      return { isOpen: false, username: null };
+    }
+    return openPipWindow(params);
+  });
+
+  ipcMain.handle('pip:getState', async (): Promise<PipState> => {
+    return {
+      isOpen: Boolean(pipWindow && !pipWindow.isDestroyed()),
+      username: currentPipUsername,
+    };
+  });
+
+  ipcMain.handle('pip:focusMainWindow', async (): Promise<void> => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
 }
 
 app.on('web-contents-created', (_event, contents) => {

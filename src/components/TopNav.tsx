@@ -2,10 +2,7 @@ import React from 'react';
 import {
   CheckCircle2,
   CircleDot,
-  Download,
-  Kanban,
   Moon,
-  Plus,
   Radio,
   Settings,
   Sun,
@@ -19,8 +16,8 @@ import { WatchPulseLogo } from './common/WatchPulseLogo';
 interface TopNavProps {
   activeView: ActiveView;
   onChangeView: (view: ActiveView) => void;
-  onOpenImport: () => void;
-  onOpenExport: () => void;
+  onOpenImport?: () => void;
+  onOpenExport?: () => void;
   onOpenTrash: () => void;
   onOpenSettings: () => void;
 }
@@ -28,8 +25,6 @@ interface TopNavProps {
 export const TopNav: React.FC<TopNavProps> = ({
   activeView,
   onChangeView,
-  onOpenImport,
-  onOpenExport,
   onOpenTrash,
   onOpenSettings,
 }) => {
@@ -76,15 +71,9 @@ export const TopNav: React.FC<TopNavProps> = ({
     },
     {
       id: 'sorter',
-      label: 'Rapid Sorter',
+      label: 'Triage Model Library',
       icon: <Zap className="w-3.5 h-3.5" />,
       shortcut: 'Ctrl+2',
-    },
-    {
-      id: 'kanban',
-      label: 'Kanban Board',
-      icon: <Kanban className="w-3.5 h-3.5" />,
-      shortcut: 'Ctrl+3',
     },
   ];
 
@@ -98,7 +87,7 @@ export const TopNav: React.FC<TopNavProps> = ({
             <div className="text-sm font-semibold tracking-tight text-white flex items-center gap-1.5">
               <span>WatchPulse</span>
               <span className="text-[10px] font-mono font-medium px-1.5 py-0.2 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/25">
-                v3.0
+                v3.06
               </span>
             </div>
             <div className="text-[10px] text-slate-400 flex items-center gap-1.5">
@@ -122,7 +111,7 @@ export const TopNav: React.FC<TopNavProps> = ({
           {navItems.map((item) => {
             const active =
               activeView === item.id ||
-              (item.id === 'sorter' && activeView === 'grid');
+              (item.id === 'sorter' && (activeView === 'grid' || activeView === 'kanban'));
             return (
               <button
                 key={item.id}
@@ -186,26 +175,6 @@ export const TopNav: React.FC<TopNavProps> = ({
             <span className="text-rose-400">Save failed</span>
           )}
         </div>
-
-        <button
-          type="button"
-          onClick={onOpenImport}
-          title="Import / Add Models (Ctrl+I)"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/25 transition-all active:scale-[0.98]"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          Import
-        </button>
-
-        <button
-          type="button"
-          onClick={onOpenExport}
-          title="Export Watchlist Data (Ctrl+E)"
-          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium liquid-pill text-slate-200 transition-all active:scale-[0.98]"
-        >
-          <Download className="w-3.5 h-3.5 text-emerald-300" />
-          Export
-        </button>
 
         <button
           type="button"

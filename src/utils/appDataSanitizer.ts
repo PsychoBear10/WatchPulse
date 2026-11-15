@@ -69,6 +69,12 @@ export function sanitizeClientSettings(
       settingsRaw.defaultReviewCadenceDays >= 0
         ? settingsRaw.defaultReviewCadenceDays
         : fallbackSettings.defaultReviewCadenceDays,
+    reviewSpreadDays:
+      typeof settingsRaw.reviewSpreadDays === 'number' &&
+      Number.isFinite(settingsRaw.reviewSpreadDays) &&
+      settingsRaw.reviewSpreadDays >= 0
+        ? settingsRaw.reviewSpreadDays
+        : fallbackSettings.reviewSpreadDays ?? 7,
     staleOfflineDays:
       typeof settingsRaw.staleOfflineDays === 'number' &&
       Number.isFinite(settingsRaw.staleOfflineDays) &&
@@ -81,6 +87,10 @@ export function sanitizeClientSettings(
       settingsRaw.trashRetentionDays >= 1
         ? Math.round(settingsRaw.trashRetentionDays)
         : fallbackSettings.trashRetentionDays,
+    autoDropOfflineStreams:
+      typeof settingsRaw.autoDropOfflineStreams === 'boolean'
+        ? settingsRaw.autoDropOfflineStreams
+        : Boolean(fallbackSettings.autoDropOfflineStreams),
     urlTemplates: {
       cbhours:
         typeof templatesRaw.cbhours === 'string' && templatesRaw.cbhours.trim()
@@ -304,6 +314,12 @@ export function sanitizeClientAppData(raw: unknown): AppData {
               Number.isFinite(t.reviewCadenceDays) &&
               t.reviewCadenceDays >= 0
                 ? t.reviewCadenceDays
+                : undefined,
+            reviewSpreadDays:
+              typeof t.reviewSpreadDays === 'number' &&
+              Number.isFinite(t.reviewSpreadDays) &&
+              t.reviewSpreadDays >= 0
+                ? t.reviewSpreadDays
                 : undefined,
           };
         })

@@ -19,6 +19,17 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
 }) => {
   const { syncModelActivity } = useAppStore();
   const [syncing, setSyncing] = useState(false);
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setNow(new Date());
+    }, 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const currentDayIdx = (now.getDay() + 6) % 7; // Mon = 0 .. Sun = 6
+  const currentHour = now.getHours(); // 0 .. 23
 
   useEffect(() => {
     const lastSyncedMs = model.activitySyncedAt
@@ -72,15 +83,32 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
 
   const displaySchedule = manual?.usualSchedule?.trim() || summary.peakWindowLabel;
 
-  const cellStyle = (mins: number) => {
-    if (mins <= 0 || summary.maxCellMinutes <= 0) {
-      return 'bg-white/[0.04] border-white/[0.04]';
+  const getCellClasses = (mins: number, isCurrent: boolean) => {
+    let bg = 'bg-white/[0.04]';
+    let border = 'border-white/[0.04]';
+
+    if (mins > 0 && summary.maxCellMinutes > 0) {
+      const ratio = mins / summary.maxCellMinutes;
+      if (ratio >= 0.75) {
+        bg = 'bg-emerald-400';
+        border = 'border-emerald-300/40';
+      } else if (ratio >= 0.5) {
+        bg = 'bg-emerald-500/75';
+        border = 'border-emerald-400/30';
+      } else if (ratio >= 0.25) {
+        bg = 'bg-emerald-500/45';
+        border = 'border-emerald-500/20';
+      } else {
+        bg = 'bg-emerald-500/20';
+        border = 'border-emerald-500/15';
+      }
     }
-    const ratio = mins / summary.maxCellMinutes;
-    if (ratio >= 0.75) return 'bg-emerald-400 border-emerald-300/40';
-    if (ratio >= 0.5) return 'bg-emerald-500/75 border-emerald-400/30';
-    if (ratio >= 0.25) return 'bg-emerald-500/45 border-emerald-500/20';
-    return 'bg-emerald-500/20 border-emerald-500/15';
+
+    if (isCurrent) {
+      return `${bg} border-sky-300 ring-1 ring-sky-400/90 shadow-[0_0_8px_rgba(56,189,248,0.85)] z-10 relative scale-110`;
+    }
+
+    return `${bg} ${border}`;
   };
 
   return (
@@ -137,32 +165,57 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
       {/* 7 x 24 Local Activity Heatmap */}
       <div className="space-y-1">
         <div className="flex items-center justify-between text-[10px] text-slate-500">
-          <span>Usually Active Heatmap (Local Time · Last 30d)</span>
-          <span>{summary.activeDaysLast30} active days logged</span>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="truncate">Usually Active Heatmap (Local Time · Last 30d)</span>
+            <span
+              title="Current local hour cell is highlighted with a cyan border"
+              className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-sky-500/15 text-sky-300 border border-sky-400/30 text-[9px] font-mono shrink-0"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse" />
+              {DAY_LABELS[currentDayIdx]} {String(currentHour).padStart(2, '0')}:00
+            </span>
+          </div>
+          <span className="shrink-0">{summary.activeDaysLast30} active days logged</span>
         </div>
 
         <div className="space-y-1 overflow-x-auto">
-          {DAY_LABELS.map((day, dIdx) => (
-            <div key={day} className="flex items-center gap-1.5">
-              <span className="w-6 text-[9px] font-mono text-slate-500 shrink-0">
-                {day}
-              </span>
-              <div
-                className="grid grid-cols-24 gap-0.5 flex-1 min-w-[240px]"
-                style={{ gridTemplateColumns: 'repeat(24, minmax(0, 1fr))' }}
-              >
-                {summary.heatmap[dIdx].map((mins, hIdx) => (
-                  <div
-                    key={hIdx}
-                    title={`${day} ${String(hIdx).padStart(2, '0')}:00 — ${Math.round(
-                      mins
-                    )} min tracked`}
-                    className={`h-2.5 rounded-[2px] border ${cellStyle(mins)}`}
-                  />
-                ))}
+          {DAY_LABELS.map((day, dIdx) => {
+            const isToday = dIdx === currentDayIdx;
+            return (
+              <div key={day} className="flex items-center gap-1.5">
+                <span
+                  title={isToday ? 'Today (Current Day of Week)' : undefined}
+                  className={`w-6 text-[9px] font-mono shrink-0 transition-colors ${
+                    isToday ? 'text-sky-300 font-bold' : 'text-slate-500'
+                  }`}
+                >
+                  {day}
+                </span>
+                <div
+                  className="grid grid-cols-24 gap-0.5 flex-1 min-w-[240px]"
+                  style={{ gridTemplateColumns: 'repeat(24, minmax(0, 1fr))' }}
+                >
+                  {summary.heatmap[dIdx].map((mins, hIdx) => {
+                    const isCurrent = isToday && hIdx === currentHour;
+                    return (
+                      <div
+                        key={hIdx}
+                        title={`${day} ${String(hIdx).padStart(2, '0')}:00 — ${Math.round(
+                          mins
+                        )} min tracked${
+                          isCurrent ? ' (Current Time — You Are Here)' : ''
+                        }`}
+                        className={`h-2.5 rounded-[2px] border transition-all ${getCellClasses(
+                          mins,
+                          isCurrent
+                        )}`}
+                      />
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
           <div className="flex items-center justify-between pl-7 text-[9px] font-mono text-slate-600">
             <span>00</span>
             <span>06</span>

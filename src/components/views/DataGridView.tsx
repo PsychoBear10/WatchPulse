@@ -4,6 +4,7 @@ import {
   ArrowUp,
   ArrowUpDown,
   Check,
+  LayoutGrid,
   MonitorPlay,
   Pencil,
   Plus,
@@ -14,7 +15,10 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { ModelRecord } from '../../types/models';
-import { getModelReviewStatus } from '../../utils/review';
+import {
+  DEFAULT_REVIEW_SPREAD_DAYS,
+  createModelReviewStatusHelper,
+} from '../../utils/review';
 import { CbexplorerToggle } from '../common/CbexplorerToggle';
 import { LinkPillGroup } from '../common/LinkPillGroup';
 import { ModelAvatar } from '../common/ModelAvatar';
@@ -24,6 +28,7 @@ interface DataGridViewProps {
   onSilentPreview: (model: ModelRecord) => void;
   onOpenImport: () => void;
   onOpenRapidSorter?: () => void;
+  onOpenVisualBoard?: () => void;
   onRequestDelete: (models: ModelRecord[]) => void;
 }
 
@@ -35,6 +40,7 @@ export const DataGridView: React.FC<DataGridViewProps> = ({
   onSilentPreview,
   onOpenImport,
   onOpenRapidSorter,
+  onOpenVisualBoard,
   onRequestDelete,
 }) => {
   const {
@@ -81,9 +87,27 @@ export const DataGridView: React.FC<DataGridViewProps> = ({
     return map;
   }, [data.inbox, sortedTiers]);
 
+  const reviewHelper = useMemo(
+    () =>
+      createModelReviewStatusHelper(
+        data.models,
+        data.tiers,
+        data.settings.defaultReviewCadenceDays,
+        data.settings.staleOfflineDays,
+        Date.now(),
+        data.settings.reviewSpreadDays ?? DEFAULT_REVIEW_SPREAD_DAYS
+      ),
+    [
+      data.models,
+      data.tiers,
+      data.settings.defaultReviewCadenceDays,
+      data.settings.staleOfflineDays,
+      data.settings.reviewSpreadDays,
+    ]
+  );
+
   const filteredAndSorted = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const nowMs = Date.now();
     const filtered = data.models.filter((m) => {
       if (tierFilter !== 'all' && m.tierId !== tierFilter) return false;
       if (tagFilter !== 'all' && !m.tags.includes(tagFilter)) return false;
@@ -93,13 +117,7 @@ export const DataGridView: React.FC<DataGridViewProps> = ({
         return false;
       }
       if (statusFilter === 'due' || statusFilter === 'stale') {
-        const st = getModelReviewStatus(
-          m,
-          sortedTiers.find((t) => t.id === m.tierId),
-          data.settings.defaultReviewCadenceDays,
-          data.settings.staleOfflineDays,
-          nowMs
-        );
+        const st = reviewHelper.getStatus(m);
         if (statusFilter === 'due' && !st.isDueForReview) return false;
         if (statusFilter === 'stale' && !st.isStaleOffline) return false;
       }
@@ -130,9 +148,8 @@ export const DataGridView: React.FC<DataGridViewProps> = ({
   }, [
     cbFilter,
     data.models,
-    data.settings.defaultReviewCadenceDays,
-    data.settings.staleOfflineDays,
     liveRoomsByUsername,
+    reviewHelper,
     search,
     sortDir,
     sortKey,
@@ -244,11 +261,22 @@ export const DataGridView: React.FC<DataGridViewProps> = ({
             <button
               type="button"
               onClick={onOpenRapidSorter}
-              title="Back to Rapid Sorter card deck (Ctrl+2)"
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-200 border border-indigo-500/35 transition-colors"
+              title="Back to Triage Deck (Ctrl+2)"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-200 border border-indigo-500/35 transition-colors active:scale-95"
             >
               <Zap className="w-3.5 h-3.5 text-indigo-300" />
-              Rapid Sorter
+              Triage Deck
+            </button>
+          )}
+          {onOpenVisualBoard && (
+            <button
+              type="button"
+              onClick={onOpenVisualBoard}
+              title="Switch to Visual Board (Ctrl+3)"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-white/[0.05] hover:bg-white/[0.1] text-slate-200 border border-white/10 transition-colors active:scale-95"
+            >
+              <LayoutGrid className="w-3.5 h-3.5 text-indigo-300" />
+              Visual Board
             </button>
           )}
           <div className="relative w-64">
@@ -344,10 +372,10 @@ export const DataGridView: React.FC<DataGridViewProps> = ({
           <button
             type="button"
             onClick={onOpenImport}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-white/[0.05] hover:bg-white/[0.1] text-slate-200 border border-white/10"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm transition-all active:scale-95"
           >
             <Plus className="w-3.5 h-3.5" />
-            Import
+            + Add Model
           </button>
         </div>
       </div>
@@ -537,14 +565,12 @@ export const DataGridView: React.FC<DataGridViewProps> = ({
                             <span className="font-semibold text-white truncate max-w-[160px]">
                               {model.displayName || model.username}
                             </span>
-                            {getModelReviewStatus(
-                              model,
-                              sortedTiers.find((t) => t.id === model.tierId),
-                              data.settings.defaultReviewCadenceDays,
-                              data.settings.staleOfflineDays
-                            ).isDueForReview && (
-                              <span className="px-1 py-0.2 rounded text-[9px] font-semibold bg-amber-500/20 text-amber-200 border border-amber-500/35 shrink-0">
-                                Due
+                            {reviewHelper.getStatus(model).isDueForReview && (
+                              <span
+                                title={`Due for periodic re-sort (Cadence + ${reviewHelper.getStatus(model).spreadOffsetDays}d random spread)`}
+                                className="px-1 py-0.2 rounded text-[9px] font-semibold bg-amber-500/20 text-amber-200 border border-amber-500/35 shrink-0"
+                              >
+                                Re-sort Due
                               </span>
                             )}
                           </div>

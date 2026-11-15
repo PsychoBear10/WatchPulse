@@ -37,6 +37,31 @@ const electronAPI = {
     ipcRenderer.invoke('live:resolveStream', username),
   deleteThumbnail: (mediaUrl: string): Promise<boolean> =>
     ipcRenderer.invoke('media:deleteThumbnail', mediaUrl),
+  openPip: (params: {
+    username: string;
+    muted?: boolean;
+    videoOnly?: boolean;
+    embedTemplate?: string;
+  }) => ipcRenderer.invoke('pip:open', params),
+  closePip: (): Promise<boolean> => ipcRenderer.invoke('pip:close'),
+  togglePip: (params: {
+    username: string;
+    muted?: boolean;
+    videoOnly?: boolean;
+    embedTemplate?: string;
+  }) => ipcRenderer.invoke('pip:toggle', params),
+  getPipState: () => ipcRenderer.invoke('pip:getState'),
+  focusMainWindow: (): Promise<void> => ipcRenderer.invoke('pip:focusMainWindow'),
+  onPipStateChanged: (callback: (state: unknown) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, state: unknown) => callback(state);
+    ipcRenderer.on('pip:stateChanged', handler);
+    return () => ipcRenderer.removeListener('pip:stateChanged', handler);
+  },
+  onPipNavigate: (callback: (params: unknown) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, params: unknown) => callback(params);
+    ipcRenderer.on('pip:navigate', handler);
+    return () => ipcRenderer.removeListener('pip:navigate', handler);
+  },
 };
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI);

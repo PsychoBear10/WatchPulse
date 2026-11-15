@@ -108,8 +108,10 @@ export function createDefaultAppData(): AppData {
       deckSourceFilter: 'inbox',
       showKeyboardHints: true,
       defaultReviewCadenceDays: 14,
+      reviewSpreadDays: 7,
       staleOfflineDays: 30,
       trashRetentionDays: 45,
+      autoDropOfflineStreams: false,
       urlTemplates: { ...DEFAULT_URL_TEMPLATES },
       liveFeed: { ...DEFAULT_LIVE_FEED },
       themeMode: 'dark',
@@ -332,6 +334,12 @@ export function sanitizeAppData(raw: unknown): AppData {
               t.reviewCadenceDays >= 0
                 ? t.reviewCadenceDays
                 : undefined,
+            reviewSpreadDays:
+              typeof t.reviewSpreadDays === 'number' &&
+              Number.isFinite(t.reviewSpreadDays) &&
+              t.reviewSpreadDays >= 0
+                ? t.reviewSpreadDays
+                : undefined,
           };
         })
         .sort((a, b) => a.order - b.order)
@@ -423,6 +431,12 @@ export function sanitizeAppData(raw: unknown): AppData {
       settingsRaw.defaultReviewCadenceDays >= 0
         ? settingsRaw.defaultReviewCadenceDays
         : 14,
+    reviewSpreadDays:
+      typeof settingsRaw.reviewSpreadDays === 'number' &&
+      Number.isFinite(settingsRaw.reviewSpreadDays) &&
+      settingsRaw.reviewSpreadDays >= 0
+        ? settingsRaw.reviewSpreadDays
+        : 7,
     staleOfflineDays:
       typeof settingsRaw.staleOfflineDays === 'number' &&
       Number.isFinite(settingsRaw.staleOfflineDays) &&
@@ -430,6 +444,10 @@ export function sanitizeAppData(raw: unknown): AppData {
         ? settingsRaw.staleOfflineDays
         : 30,
     trashRetentionDays,
+    autoDropOfflineStreams:
+      typeof settingsRaw.autoDropOfflineStreams === 'boolean'
+        ? settingsRaw.autoDropOfflineStreams
+        : false,
     urlTemplates: {
       cbhours:
         typeof templatesRaw.cbhours === 'string' && templatesRaw.cbhours.trim()

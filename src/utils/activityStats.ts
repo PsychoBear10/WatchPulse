@@ -153,6 +153,8 @@ export interface UsuallyLiveNowMeta {
   recent14dDaysCount: number;
   activeDays30d: number;
   label: string;
+  isExpectedSoon: boolean;
+  badgeText: string;
 }
 
 /**
@@ -196,6 +198,8 @@ export function getUsuallyLiveNowMeta(
     recent14dDaysCount: 0,
     activeDays30d: 0,
     label: '',
+    isExpectedSoon: false,
+    badgeText: '',
   };
   if (!model.presenceHours) return empty;
 
@@ -411,10 +415,14 @@ export function getUsuallyLiveNowMeta(
       recent14dDaysCount,
       activeDays30d,
       label: '',
+      isExpectedSoon: false,
+      badgeText: '',
     };
   }
 
   const prefersNextHour = weightedNextScore > weightedCurScore * 1.35;
+  const isExpectedSoon = prefersNextHour || (weightedCurScore < 15 && weightedNextScore >= 20);
+  const badgeText = isExpectedSoon ? 'Expected (< 1 hr)' : 'Usual';
   const targetHourStr = pad2(prefersNextHour ? nextHour : curHour);
   const weekdayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const summarySuffix =
@@ -423,9 +431,9 @@ export function getUsuallyLiveNowMeta(
       ? ` (${sameWeekdayMatches}/${Math.max(sameWeekdayActiveDays30d, sameWeekdayMatches)} ${weekdayNames[curWeekday]}s)`
       : ` (${matchingDaysCount}/${activeDays30d} active days)`;
 
-  const label = prefersNextHour
-    ? `${rawConfidence}% match · Likely soon ~${targetHourStr}:00${summarySuffix}`
-    : `${rawConfidence}% match · Usually live ~${targetHourStr}:00${summarySuffix}`;
+  const label = isExpectedSoon
+    ? `Expected (< 1 hr) · ${rawConfidence}% match · Usually starts ~${targetHourStr}:00${summarySuffix}`
+    : `Usual · ${rawConfidence}% match · Usually live ~${targetHourStr}:00${summarySuffix}`;
 
   return {
     isUsuallyLiveNow: true,
@@ -437,6 +445,8 @@ export function getUsuallyLiveNowMeta(
     recent14dDaysCount,
     activeDays30d,
     label,
+    isExpectedSoon,
+    badgeText,
   };
 }
 

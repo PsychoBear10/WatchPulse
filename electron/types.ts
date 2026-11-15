@@ -6,6 +6,7 @@ export interface TierDefinition {
   order: number;
   description?: string;
   reviewCadenceDays?: number;
+  reviewSpreadDays?: number;
 }
 
 export interface InboxConfig {
@@ -75,8 +76,10 @@ export interface AppSettings {
   showKeyboardHints: boolean;
   themeMode?: ThemeMode;
   defaultReviewCadenceDays: number;
+  reviewSpreadDays?: number;
   staleOfflineDays: number;
   trashRetentionDays: number;
+  autoDropOfflineStreams?: boolean;
   urlTemplates: UrlTemplates;
   liveFeed: LiveFeedConfig;
 }
@@ -124,6 +127,18 @@ export interface LiveStreamResolveResult {
   roomStatus?: string;
   numViewers?: number;
   error?: string;
+}
+
+export interface PipParams {
+  username: string;
+  muted?: boolean;
+  videoOnly?: boolean;
+  embedTemplate?: string;
+}
+
+export interface PipState {
+  isOpen: boolean;
+  username: string | null;
 }
 
 export interface AppInfo {

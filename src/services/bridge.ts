@@ -6,6 +6,8 @@ import {
   LiveStreamResolveResult,
   OpenFileResult,
   OpenImageResult,
+  PipParams,
+  PipState,
   SaveFileResult,
   UrlTemplates,
 } from '../types/models';
@@ -95,8 +97,10 @@ export function createDefaultAppData(): AppData {
       deckSourceFilter: 'inbox',
       showKeyboardHints: true,
       defaultReviewCadenceDays: 14,
+      reviewSpreadDays: 7,
       staleOfflineDays: 30,
       trashRetentionDays: 45,
+      autoDropOfflineStreams: false,
       urlTemplates: { ...DEFAULT_URL_TEMPLATES },
       liveFeed: { ...DEFAULT_LIVE_FEED },
       themeMode: 'dark',
@@ -275,5 +279,53 @@ export const desktopBridge = {
       return window.electronAPI.deleteThumbnail(mediaUrl);
     }
     return false;
+  },
+
+  async openPip(params: PipParams): Promise<PipState> {
+    if (window.electronAPI?.openPip) {
+      return window.electronAPI.openPip(params);
+    }
+    return { isOpen: false, username: null };
+  },
+
+  async closePip(): Promise<boolean> {
+    if (window.electronAPI?.closePip) {
+      return window.electronAPI.closePip();
+    }
+    return false;
+  },
+
+  async togglePip(params: PipParams): Promise<PipState> {
+    if (window.electronAPI?.togglePip) {
+      return window.electronAPI.togglePip(params);
+    }
+    return { isOpen: false, username: null };
+  },
+
+  async getPipState(): Promise<PipState> {
+    if (window.electronAPI?.getPipState) {
+      return window.electronAPI.getPipState();
+    }
+    return { isOpen: false, username: null };
+  },
+
+  async focusMainWindow(): Promise<void> {
+    if (window.electronAPI?.focusMainWindow) {
+      return window.electronAPI.focusMainWindow();
+    }
+  },
+
+  onPipStateChanged(callback: (state: PipState) => void): (() => void) {
+    if (window.electronAPI?.onPipStateChanged) {
+      return window.electronAPI.onPipStateChanged(callback);
+    }
+    return () => {};
+  },
+
+  onPipNavigate(callback: (params: PipParams) => void): (() => void) {
+    if (window.electronAPI?.onPipNavigate) {
+      return window.electronAPI.onPipNavigate(callback);
+    }
+    return () => {};
   },
 };

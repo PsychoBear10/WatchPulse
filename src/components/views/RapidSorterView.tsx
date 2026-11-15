@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   CheckCircle2,
   Clock,
@@ -6,6 +6,7 @@ import {
   FolderOpen,
   Image as ImageIcon,
   Keyboard,
+  LayoutGrid,
   Link2,
   MonitorPlay,
   PanelRightClose,
@@ -23,7 +24,11 @@ import { desktopBridge } from '../../services/bridge';
 import { useAppStore } from '../../store/useAppStore';
 import { CustomLink, ModelRecord } from '../../types/models';
 import { isEditableTarget } from '../../utils/hotkeys';
-import { formatRelativeAge, getModelReviewStatus } from '../../utils/review';
+import {
+  DEFAULT_REVIEW_SPREAD_DAYS,
+  createModelReviewStatusHelper,
+  formatRelativeAge,
+} from '../../utils/review';
 import { normalizeExternalUrl, sanitizeUsername } from '../../utils/sanitizer';
 import { ActivityHeatmap } from '../common/ActivityHeatmap';
 import { CbexplorerToggle } from '../common/CbexplorerToggle';
@@ -36,6 +41,7 @@ interface RapidSorterViewProps {
   onOpenImport: () => void;
   onOpenTierManager: () => void;
   onOpenDataGrid: () => void;
+  onOpenVisualBoard?: () => void;
   onSilentPreview: (model: ModelRecord) => void;
   onRequestDelete: (models: ModelRecord[]) => void;
 }
@@ -47,6 +53,8 @@ interface DeckHistoryEntry {
   previousOrder: number;
   previousReviewedAt?: string;
   previousSkippedIds: string[];
+  previousSortedIds: string[];
+  previousBypassedIds: string[];
 }
 
 export const RapidSorterView: React.FC<RapidSorterViewProps> = ({
@@ -54,6 +62,7 @@ export const RapidSorterView: React.FC<RapidSorterViewProps> = ({
   onOpenImport,
   onOpenTierManager,
   onOpenDataGrid,
+  onOpenVisualBoard,
   onSilentPreview,
   onRequestDelete,
 }) => {
@@ -72,6 +81,8 @@ export const RapidSorterView: React.FC<RapidSorterViewProps> = ({
 
   const [pendingWatchlistOnly, setPendingWatchlistOnly] = useState(false);
   const [skippedIds, setSkippedIds] = useState<string[]>([]);
+  const [sessionSortedIds, setSessionSortedIds] = useState<string[]>([]);
+  const [bypassedIds, setBypassedIds] = useState<string[]>([]);
   const [deckHistory, setDeckHistory] = useState<DeckHistoryEntry[]>([]);
   const [sessionSorted, setSessionSorted] = useState(0);
   const [showInspector, setShowInspector] = useState(false);
@@ -82,14 +93,12 @@ export const RapidSorterView: React.FC<RapidSorterViewProps> = ({
   const [newLinkLabel, setNewLinkLabel] = useState('');
   const [newLinkUrl, setNewLinkUrl] = useState('');
 
-  // Drop deleted/trashed model IDs from skippedIds so stale skips never accumulate
+  // Drop deleted/trashed model IDs from tracking sets so stale IDs never accumulate
   useEffect(() => {
-    setSkippedIds((prev) => {
-      if (prev.length === 0) return prev;
-      const validIds = new Set(data.models.map((m) => m.id));
-      const filtered = prev.filter((id) => validIds.has(id));
-      return filtered.length === prev.length ? prev : filtered;
-    });
+    const validIds = new Set(data.models.map((m) => m.id));
+    setSkippedIds((prev) => prev.filter((id) => validIds.has(id)));
+    setSessionSortedIds((prev) => prev.filter((id) => validIds.has(id)));
+    setBypassedIds((prev) => prev.filter((id) => validIds.has(id)));
   }, [data.models]);
 
   const sortedTiers = useMemo(
@@ -97,44 +106,49 @@ export const RapidSorterView: React.FC<RapidSorterViewProps> = ({
     [data.tiers]
   );
 
-  const tierById = useMemo(() => {
-    const map = new Map<string, (typeof sortedTiers)[number]>();
-    for (const t of sortedTiers) map.set(t.id, t);
-    return map;
-  }, [sortedTiers]);
-
   const sourceFilter = data.settings.deckSourceFilter || 'inbox';
 
-  const dueCount = useMemo(() => {
-    const nowMs = Date.now();
-    return data.models.filter((m) =>
-      getModelReviewStatus(
-        m,
-        tierById.get(m.tierId),
+  // Reset deck session when sourceFilter changes
+  const prevSourceFilterRef = useRef(sourceFilter);
+  useEffect(() => {
+    if (prevSourceFilterRef.current !== sourceFilter) {
+      prevSourceFilterRef.current = sourceFilter;
+      setSkippedIds([]);
+      setSessionSortedIds([]);
+      setBypassedIds([]);
+      setDeckHistory([]);
+      setSessionSorted(0);
+    }
+  }, [sourceFilter]);
+
+  const reviewHelper = useMemo(
+    () =>
+      createModelReviewStatusHelper(
+        data.models,
+        data.tiers,
         data.settings.defaultReviewCadenceDays,
         data.settings.staleOfflineDays,
-        nowMs
-      ).isDueForReview
-    ).length;
-  }, [
-    data.models,
-    data.settings.defaultReviewCadenceDays,
-    data.settings.staleOfflineDays,
-    tierById,
-  ]);
+        Date.now(),
+        data.settings.reviewSpreadDays ?? DEFAULT_REVIEW_SPREAD_DAYS
+      ),
+    [
+      data.models,
+      data.tiers,
+      data.settings.defaultReviewCadenceDays,
+      data.settings.staleOfflineDays,
+      data.settings.reviewSpreadDays,
+    ]
+  );
+
+  const dueCount = useMemo(() => {
+    return data.models.filter((m) => reviewHelper.getStatus(m).isDueForReview).length;
+  }, [data.models, reviewHelper]);
 
   const filteredModels = useMemo(() => {
-    const nowMs = Date.now();
     return data.models
       .filter((m) => {
         if (sourceFilter === '__due__') {
-          const st = getModelReviewStatus(
-            m,
-            tierById.get(m.tierId),
-            data.settings.defaultReviewCadenceDays,
-            data.settings.staleOfflineDays,
-            nowMs
-          );
+          const st = reviewHelper.getStatus(m);
           if (!st.isDueForReview) return false;
         } else if (sourceFilter !== 'all' && m.tierId !== sourceFilter) {
           return false;
@@ -143,24 +157,28 @@ export const RapidSorterView: React.FC<RapidSorterViewProps> = ({
         return true;
       })
       .sort((a, b) => a.order - b.order);
-  }, [
-    data.models,
-    data.settings.defaultReviewCadenceDays,
-    data.settings.staleOfflineDays,
-    pendingWatchlistOnly,
-    sourceFilter,
-    tierById,
-  ]);
+  }, [data.models, pendingWatchlistOnly, reviewHelper, sourceFilter]);
 
-  // Put skipped cards at the back of the queue so skipped items cycle cleanly
+  // Exclude models that have already been triaged or bypassed in this session to prevent endless loops
+  const eligibleModels = useMemo(() => {
+    const sortedSet = new Set(sessionSortedIds);
+    const bypassedSet = new Set(bypassedIds);
+    return filteredModels.filter(
+      (m) => !sortedSet.has(m.id) && !bypassedSet.has(m.id)
+    );
+  }, [bypassedIds, filteredModels, sessionSortedIds]);
+
+  // Put skipped cards at the back of the queue so unskipped items are evaluated first
   const orderedDeck = useMemo(() => {
-    if (skippedIds.length === 0) return filteredModels;
+    if (eligibleModels.length === 0) return [];
+    if (skippedIds.length === 0) return eligibleModels;
+
     const skipRank = new Map<string, number>();
     skippedIds.forEach((id, idx) => skipRank.set(id, idx));
 
     const unskipped: ModelRecord[] = [];
     const skipped: ModelRecord[] = [];
-    for (const model of filteredModels) {
+    for (const model of eligibleModels) {
       if (skipRank.has(model.id)) {
         skipped.push(model);
       } else {
@@ -169,7 +187,7 @@ export const RapidSorterView: React.FC<RapidSorterViewProps> = ({
     }
     skipped.sort((a, b) => (skipRank.get(a.id) ?? 0) - (skipRank.get(b.id) ?? 0));
     return [...unskipped, ...skipped];
-  }, [filteredModels, skippedIds]);
+  }, [eligibleModels, skippedIds]);
 
   const activeModel = orderedDeck[0] ?? null;
   const nextModel = orderedDeck[1] ?? null;
@@ -193,69 +211,97 @@ export const RapidSorterView: React.FC<RapidSorterViewProps> = ({
   const handleAssignTier = useCallback(
     (targetTierId: string, color: string) => {
       if (!activeModel) return;
+
+      const currentModelId = activeModel.id;
+      const currentTierId = activeModel.tierId;
+      const currentOrder = activeModel.order;
+      const currentReviewedAt = activeModel.lastReviewedAt;
+
       setDeckHistory((prev) => [
         ...prev.slice(-49),
         {
           action: 'sort',
-          modelId: activeModel.id,
-          previousTierId: activeModel.tierId,
-          previousOrder: activeModel.order,
-          previousReviewedAt: activeModel.lastReviewedAt,
-          previousSkippedIds: skippedIds,
+          modelId: currentModelId,
+          previousTierId: currentTierId,
+          previousOrder: currentOrder,
+          previousReviewedAt: currentReviewedAt,
+          previousSkippedIds: [...skippedIds],
+          previousSortedIds: [...sessionSortedIds],
+          previousBypassedIds: [...bypassedIds],
         },
       ]);
 
       // Remove from skipped list if it was skipped earlier
-      setSkippedIds((prev) => prev.filter((id) => id !== activeModel.id));
+      setSkippedIds((prev) => prev.filter((id) => id !== currentModelId));
+
+      // Mark model as sorted for this session so it never loops back
+      setSessionSortedIds((prev) =>
+        prev.includes(currentModelId) ? prev : [...prev, currentModelId]
+      );
+
       triggerFlash(color);
 
-      if (activeModel.tierId === targetTierId) {
-        markModelReviewed(activeModel.id, false);
-        if (sourceFilter !== '__due__') {
-          setSkippedIds((prev) => [
-            ...prev.filter((id) => id !== activeModel.id),
-            activeModel.id,
-          ]);
-        }
+      if (currentTierId === targetTierId) {
+        // Confirmed in current tier: mark reviewed
+        markModelReviewed(currentModelId, false);
       } else {
-        moveModelToTier(activeModel.id, targetTierId);
+        moveModelToTier(currentModelId, targetTierId);
       }
 
       setSessionSorted((c) => c + 1);
     },
     [
       activeModel,
+      bypassedIds,
       markModelReviewed,
       moveModelToTier,
+      sessionSortedIds,
       skippedIds,
-      sourceFilter,
       triggerFlash,
     ]
   );
 
   const handleSkip = useCallback(() => {
     if (!activeModel) return;
+
+    const currentModelId = activeModel.id;
+    const currentTierId = activeModel.tierId;
+    const currentOrder = activeModel.order;
+    const currentReviewedAt = activeModel.lastReviewedAt;
+
     setDeckHistory((prev) => [
       ...prev.slice(-49),
       {
         action: 'skip',
-        modelId: activeModel.id,
-        previousTierId: activeModel.tierId,
-        previousOrder: activeModel.order,
-        previousSkippedIds: skippedIds,
+        modelId: currentModelId,
+        previousTierId: currentTierId,
+        previousOrder: currentOrder,
+        previousReviewedAt: currentReviewedAt,
+        previousSkippedIds: [...skippedIds],
+        previousSortedIds: [...sessionSortedIds],
+        previousBypassedIds: [...bypassedIds],
       },
     ]);
-    setSkippedIds((prev) => [
-      ...prev.filter((id) => id !== activeModel.id),
-      activeModel.id,
-    ]);
-  }, [activeModel, skippedIds]);
+
+    // If already skipped once during this pass, bypass it from the queue so it doesn't loop endlessly
+    if (skippedIds.includes(currentModelId)) {
+      setSkippedIds((prev) => prev.filter((id) => id !== currentModelId));
+      setBypassedIds((prev) =>
+        prev.includes(currentModelId) ? prev : [...prev, currentModelId]
+      );
+    } else {
+      // Put at the back of the queue for the current pass
+      setSkippedIds((prev) => [...prev, currentModelId]);
+    }
+  }, [activeModel, bypassedIds, sessionSortedIds, skippedIds]);
 
   const handleUndo = useCallback(() => {
     if (deckHistory.length === 0) return;
     const last = deckHistory[deckHistory.length - 1];
     setDeckHistory((prev) => prev.slice(0, -1));
     setSkippedIds(last.previousSkippedIds);
+    setSessionSortedIds(last.previousSortedIds);
+    setBypassedIds(last.previousBypassedIds);
 
     if (last.action === 'sort') {
       const exists = data.models.some((m) => m.id === last.modelId);
@@ -269,6 +315,21 @@ export const RapidSorterView: React.FC<RapidSorterViewProps> = ({
       notify('Restored skipped card', 'info');
     }
   }, [data.models, deckHistory, moveModelToTier, notify, updateModel]);
+
+  const handleRestartDeck = useCallback(() => {
+    setSkippedIds([]);
+    setSessionSortedIds([]);
+    setBypassedIds([]);
+    setDeckHistory([]);
+    setSessionSorted(0);
+    notify('Deck session restarted', 'info');
+  }, [notify]);
+
+  const handleReviewSkipped = useCallback(() => {
+    setSkippedIds([]);
+    setBypassedIds([]);
+    notify('Reviewing skipped cards', 'info');
+  }, [notify]);
 
   useEffect(() => {
     setUsernameDraft(activeModel?.username ?? '');
@@ -412,6 +473,10 @@ export const RapidSorterView: React.FC<RapidSorterViewProps> = ({
               value={sourceFilter}
               onChange={(e) => {
                 setSkippedIds([]);
+                setSessionSortedIds([]);
+                setBypassedIds([]);
+                setDeckHistory([]);
+                setSessionSorted(0);
                 updateSettings({ deckSourceFilter: e.target.value });
               }}
               className="bg-[#151924] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-100 focus:outline-none focus:border-indigo-500"
@@ -435,7 +500,13 @@ export const RapidSorterView: React.FC<RapidSorterViewProps> = ({
 
           <button
             type="button"
-            onClick={() => setPendingWatchlistOnly((v) => !v)}
+            onClick={() => {
+              setPendingWatchlistOnly((v) => !v);
+              setSkippedIds([]);
+              setSessionSortedIds([]);
+              setBypassedIds([]);
+              setDeckHistory([]);
+            }}
             className={`px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
               pendingWatchlistOnly
                 ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40'
@@ -457,6 +528,16 @@ export const RapidSorterView: React.FC<RapidSorterViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onOpenImport}
+            title="Add or import new models to library (Ctrl+I)"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm transition-all active:scale-95"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            + Add Model
+          </button>
+
           <button
             type="button"
             onClick={handleUndo}
@@ -488,20 +569,32 @@ export const RapidSorterView: React.FC<RapidSorterViewProps> = ({
       <div className="flex-1 flex min-h-0 overflow-hidden">
         {/* Center Deck Stage */}
         <div className="flex-1 flex flex-col items-center justify-between p-6 overflow-y-auto relative">
-          <div className="w-full flex items-center justify-start shrink-0 mb-2">
+          <div className="w-full flex flex-wrap items-center justify-start gap-2 shrink-0 mb-2">
             <button
               type="button"
               onClick={onOpenDataGrid}
               title="Open Data Grid table for bulk editing & multi-column sorting (Ctrl+4)"
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium bg-[#131722] hover:bg-[#191F2E] text-slate-200 hover:text-white border border-white/10 hover:border-indigo-400/40 shadow-md transition-all"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium bg-[#131722] hover:bg-[#191F2E] text-slate-200 hover:text-white border border-white/10 hover:border-indigo-400/40 shadow-md transition-all active:scale-95"
             >
               <Table2 className="w-3.5 h-3.5 text-indigo-400" />
               <span>Open Data Grid</span>
               {showHints && <kbd className="kbd-cap text-[10px]">Ctrl+4</kbd>}
             </button>
+            {onOpenVisualBoard && (
+              <button
+                type="button"
+                onClick={onOpenVisualBoard}
+                title="Open Visual Board for column-based tier organization (Ctrl+3)"
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium bg-[#131722] hover:bg-[#191F2E] text-slate-200 hover:text-white border border-white/10 hover:border-indigo-400/40 shadow-md transition-all active:scale-95"
+              >
+                <LayoutGrid className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Open Visual Board</span>
+                {showHints && <kbd className="kbd-cap text-[10px]">Ctrl+3</kbd>}
+              </button>
+            )}
           </div>
           {!activeModel ? (
-            <div className="my-auto max-w-md text-center space-y-4 p-8 rounded-2xl bg-[#11141D] border border-white/[0.08] shadow-xl">
+            <div className="my-auto max-w-md text-center space-y-4 p-8 rounded-2xl liquid-card-3d">
               <div className="w-14 h-14 mx-auto rounded-2xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center">
                 {data.models.length === 0 ? (
                   <Upload className="w-6 h-6 text-indigo-300" />
@@ -546,12 +639,32 @@ export const RapidSorterView: React.FC<RapidSorterViewProps> = ({
                     <h3 className="text-lg font-semibold text-white">
                       Queue Complete!
                     </h3>
-                    <p className="text-xs text-slate-400 mt-1.5">
-                      No remaining models match the active deck filter. Switch the Deck Queue above,
-                      turn off the CBExplorer filter, or import more models.
+                    <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+                      {sessionSorted > 0
+                        ? `All done! You sorted ${sessionSorted} model${sessionSorted === 1 ? '' : 's'} in this session.`
+                        : 'No remaining models match the active deck filter.'}
+                      {bypassedIds.length > 0 && ` (${bypassedIds.length} skipped)`}
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                    {bypassedIds.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleReviewSkipped}
+                        className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 transition-colors shadow-sm"
+                      >
+                        Review Skipped Models ({bypassedIds.length})
+                      </button>
+                    )}
+                    {sessionSorted > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleRestartDeck}
+                        className="px-3.5 py-2 rounded-xl text-xs font-medium bg-white/[0.06] hover:bg-white/[0.1] text-slate-200 border border-white/10 transition-colors"
+                      >
+                        Restart Deck Session
+                      </button>
+                    )}
                     {sourceFilter !== 'all' && (
                       <button
                         type="button"
@@ -588,13 +701,13 @@ export const RapidSorterView: React.FC<RapidSorterViewProps> = ({
                 {nextModel && (
                   <div
                     aria-hidden="true"
-                    className="absolute inset-x-4 -bottom-2.5 h-full rounded-2xl bg-[#131722] border border-white/[0.06] opacity-70 pointer-events-none"
+                    className="absolute inset-x-4 -bottom-2.5 h-full rounded-2xl liquid-card-3d opacity-60 pointer-events-none"
                   />
                 )}
 
                 <div
                   key={activeModel.id}
-                  className="relative rounded-2xl bg-[#141824] border border-white/[0.1] shadow-2xl p-6 space-y-5 animate-card-enter transition-shadow"
+                  className="relative rounded-2xl liquid-card-3d p-6 space-y-5 animate-card-enter transition-shadow"
                   style={
                     flashColor
                       ? {
@@ -643,17 +756,19 @@ export const RapidSorterView: React.FC<RapidSorterViewProps> = ({
                             </span>
                           )}
 
-                          {getModelReviewStatus(
-                            activeModel,
-                            tierById.get(activeModel.tierId),
-                            data.settings.defaultReviewCadenceDays,
-                            data.settings.staleOfflineDays
-                          ).isDueForReview && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 text-amber-200 border border-amber-500/35">
-                              <Clock className="w-2.5 h-2.5" />
-                              Re-sort Due
-                            </span>
-                          )}
+                          {(() => {
+                            const st = reviewHelper.getStatus(activeModel);
+                            if (!st.isDueForReview) return null;
+                            return (
+                              <span
+                                title={`Due for periodic re-sort (reviewed ${st.daysSinceReview}d ago, target ${st.effectiveCadenceDays}d with random spread)`}
+                                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/20 text-amber-200 border border-amber-500/35 shadow-sm"
+                              >
+                                <Clock className="w-2.5 h-2.5" />
+                                Re-sort Due
+                              </span>
+                            );
+                          })()}
                         </div>
 
                         <h2 className="text-2xl font-bold tracking-tight text-white truncate">
@@ -828,10 +943,10 @@ export const RapidSorterView: React.FC<RapidSorterViewProps> = ({
           )}
         </div>
 
-        {/* Right Quick-Edit Panel */}
+        {/* Right Quick-Edit Panel — 3D Opaque Liquid Glass Floating */}
         {showInspector && (
-          <aside className="w-80 lg:w-96 shrink-0 border-l border-white/[0.08] bg-[#0E1118] flex flex-col min-h-0">
-            <div className="px-4 py-3 border-b border-white/[0.07] flex items-center justify-between">
+          <aside className="w-80 lg:w-96 shrink-0 my-2 mr-2.5 mb-2.5 rounded-2xl liquid-sidebar-3d flex flex-col min-h-0 overflow-hidden z-10 transition-all duration-300">
+            <div className="px-4 py-3 border-b border-white/[0.08] bg-white/[0.02] backdrop-blur-md flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-slate-300">
                 Quick-Edit Card
               </span>

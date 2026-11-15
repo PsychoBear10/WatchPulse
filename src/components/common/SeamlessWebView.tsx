@@ -308,10 +308,17 @@ export const SeamlessWebView = forwardRef<
       setLoadFailed(true);
     };
 
+    const handleCrash = () => {
+      setLoading(false);
+      setLoadFailed(true);
+    };
+
     el.addEventListener('dom-ready', handleDomReady);
     el.addEventListener('did-start-loading', handleStart);
     el.addEventListener('did-stop-loading', handleStop);
     el.addEventListener('did-fail-load', handleFail);
+    el.addEventListener('crashed', handleCrash);
+    el.addEventListener('render-process-gone', handleCrash);
     applyMute();
     if (domReadyRef.current) {
       startVideoIsolationRetry();
@@ -326,6 +333,8 @@ export const SeamlessWebView = forwardRef<
       el.removeEventListener('did-start-loading', handleStart);
       el.removeEventListener('did-stop-loading', handleStop);
       el.removeEventListener('did-fail-load', handleFail);
+      el.removeEventListener('crashed', handleCrash);
+      el.removeEventListener('render-process-gone', handleCrash);
     };
   }, [isElectron, src, videoOnly]);
 

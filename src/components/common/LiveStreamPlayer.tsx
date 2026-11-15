@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Hls from 'hls.js';
-import { Lock, MonitorPlay, RefreshCw, Tv } from 'lucide-react';
+import { Lock, MonitorPlay, PictureInPicture2, RefreshCw, Tv } from 'lucide-react';
 import { desktopBridge } from '../../services/bridge';
 import { LiveRoomInfo, LiveStreamResolveResult } from '../../types/models';
 import { buildLivePreviewUrl } from '../../utils/sanitizer';
@@ -14,6 +14,7 @@ interface LiveStreamPlayerProps {
   reloadToken?: number;
   liveRoom?: LiveRoomInfo;
   compact?: boolean;
+  showPipOverlay?: boolean;
   className?: string;
 }
 
@@ -31,6 +32,7 @@ export const LiveStreamPlayer: React.FC<LiveStreamPlayerProps> = ({
   reloadToken = 0,
   liveRoom,
   compact = false,
+  showPipOverlay = true,
   className = '',
 }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -44,6 +46,66 @@ export const LiveStreamPlayer: React.FC<LiveStreamPlayerProps> = ({
     liveRoom?.currentShow
   );
   const [fallbackToWebview, setFallbackToWebview] = useState(!videoOnly);
+  const [isPipActive, setIsPipActive] = useState(false);
+  const [pipSupported, setPipSupported] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && Boolean(window.electronAPI)) {
+      setPipSupported(true);
+      const clean = username.trim().toLowerCase();
+      void desktopBridge.getPipState().then((state) => {
+        setIsPipActive(Boolean(state.isOpen && state.username === clean));
+      });
+      return desktopBridge.onPipStateChanged((state) => {
+        setIsPipActive(Boolean(state.isOpen && state.username === clean));
+      });
+    }
+
+    setPipSupported(
+      typeof document !== 'undefined' &&
+        'pictureInPictureEnabled' in document &&
+        Boolean(document.pictureInPictureEnabled)
+    );
+  }, [username]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || Boolean(window.electronAPI)) return;
+
+    const onEnterPip = () => setIsPipActive(true);
+    const onLeavePip = () => setIsPipActive(false);
+
+    video.addEventListener('enterpictureinpicture', onEnterPip);
+    video.addEventListener('leavepictureinpicture', onLeavePip);
+
+    return () => {
+      video.removeEventListener('enterpictureinpicture', onEnterPip);
+      video.removeEventListener('leavepictureinpicture', onLeavePip);
+    };
+  }, [hlsUrl, fallbackToWebview]);
+
+  const handleTogglePip = async () => {
+    try {
+      if (window.electronAPI) {
+        await desktopBridge.togglePip({
+          username,
+          muted: mutedRef.current,
+          videoOnly,
+          embedTemplate,
+        });
+        return;
+      }
+
+      if (!videoRef.current) return;
+      if (document.pictureInPictureElement) {
+        await document.exitPictureInPicture();
+      } else if (document.pictureInPictureEnabled) {
+        await videoRef.current.requestPictureInPicture();
+      }
+    } catch (err) {
+      console.warn('[WatchPulse] Picture-in-Picture error:', err);
+    }
+  };
 
   const embedSrc = buildLivePreviewUrl(username, embedTemplate, videoOnly, muted);
   const thumbSrc =
@@ -184,14 +246,37 @@ export const LiveStreamPlayer: React.FC<LiveStreamPlayerProps> = ({
 
   if (!videoOnly || fallbackToWebview) {
     return (
-      <SeamlessWebView
-        src={embedSrc}
-        muted={muted}
-        videoOnly={videoOnly}
-        title={username}
-        reloadToken={reloadToken}
-        className={className}
-      />
+      <div className={`relative w-full h-full ${className}`}>
+        <SeamlessWebView
+          src={embedSrc}
+          muted={muted}
+          videoOnly={videoOnly}
+          title={username}
+          reloadToken={reloadToken}
+          className="w-full h-full"
+        />
+        {showPipOverlay && !compact && pipSupported && (
+          <div className="absolute top-3 right-3 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            <button
+              type="button"
+              onClick={handleTogglePip}
+              title={
+                isPipActive
+                  ? 'Exit Picture-in-Picture floating window'
+                  : 'Picture-in-Picture — float this model\'s live stream above other apps and windows'
+              }
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border backdrop-blur-md transition-all shadow-xl active:scale-95 ${
+                isPipActive
+                  ? 'bg-indigo-600 text-white border-indigo-400 ring-2 ring-indigo-400/50 shadow-glow'
+                  : 'bg-black/65 hover:bg-black/85 text-slate-200 hover:text-white border-white/20 hover:border-white/40'
+              }`}
+            >
+              <PictureInPicture2 className="w-3.5 h-3.5 text-indigo-300" />
+              <span>{isPipActive ? 'In PiP Window' : 'Picture in Picture'}</span>
+            </button>
+          </div>
+        )}
+      </div>
     );
   }
 
@@ -233,7 +318,7 @@ export const LiveStreamPlayer: React.FC<LiveStreamPlayerProps> = ({
   }
 
   return (
-    <div className={`relative w-full h-full bg-black overflow-hidden ${className}`}>
+    <div className={`relative w-full h-full bg-black overflow-hidden group ${className}`}>
       <video
         ref={videoRef}
         muted={muted}
@@ -243,6 +328,30 @@ export const LiveStreamPlayer: React.FC<LiveStreamPlayerProps> = ({
         poster={thumbSrc}
         className="w-full h-full object-contain bg-black"
       />
+
+      {/* Picture-in-Picture Control Button Overlay (Reveals on hover) */}
+      {showPipOverlay && !compact && pipSupported && (
+        <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+          <button
+            type="button"
+            onClick={handleTogglePip}
+            title={
+              isPipActive
+                ? 'Exit Picture-in-Picture mode'
+                : 'Picture-in-Picture — float this model\'s live stream above other views and apps'
+            }
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border backdrop-blur-md transition-all shadow-xl active:scale-95 ${
+              isPipActive
+                ? 'bg-indigo-600 text-white border-indigo-400 ring-2 ring-indigo-400/50 shadow-glow'
+                : 'bg-black/65 hover:bg-black/85 text-slate-200 hover:text-white border-white/20 hover:border-white/40'
+            }`}
+          >
+            <PictureInPicture2 className="w-3.5 h-3.5 text-indigo-300" />
+            <span>{isPipActive ? 'In PiP Window' : 'Picture in Picture'}</span>
+          </button>
+        </div>
+      )}
+
       {resolving && (
         <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-1.5 pointer-events-none">
           <RefreshCw className="w-4 h-4 text-indigo-300 animate-spin" />

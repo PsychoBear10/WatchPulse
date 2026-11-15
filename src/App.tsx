@@ -11,6 +11,7 @@ import { TopNav } from './components/TopNav';
 import { DataGridView } from './components/views/DataGridView';
 import { KanbanView } from './components/views/KanbanView';
 import { LiveMonitorView } from './components/views/LiveMonitorView';
+import { PipWindowView } from './components/views/PipWindowView';
 import { RapidSorterView } from './components/views/RapidSorterView';
 import { AppProvider, useAppStore } from './store/useAppStore';
 import { ActiveView, ModelRecord } from './types/models';
@@ -135,6 +136,7 @@ const StudioShell: React.FC = () => {
             onOpenImport={() => setImportOpen(true)}
             onOpenTierManager={() => setTierManagerOpen(true)}
             onOpenDataGrid={() => setActiveView('grid')}
+            onOpenVisualBoard={() => setActiveView('kanban')}
             onSilentPreview={(model) => openBlendedLiveView(model, 'sorter')}
             onRequestDelete={requestDeleteModels}
           />
@@ -144,6 +146,8 @@ const StudioShell: React.FC = () => {
             onEditModel={(model) => setEditingModelId(model.id)}
             onSilentPreview={(model) => openBlendedLiveView(model, 'kanban')}
             onOpenImport={() => setImportOpen(true)}
+            onOpenTriageDeck={() => setActiveView('sorter')}
+            onOpenDataGrid={() => setActiveView('grid')}
             onRequestDelete={requestDeleteModels}
             onJumpToDeckForTier={(tierId) => {
               updateSettings({ deckSourceFilter: tierId });
@@ -157,6 +161,7 @@ const StudioShell: React.FC = () => {
             onSilentPreview={(model) => openBlendedLiveView(model, 'grid')}
             onOpenImport={() => setImportOpen(true)}
             onOpenRapidSorter={() => setActiveView('sorter')}
+            onOpenVisualBoard={() => setActiveView('kanban')}
             onRequestDelete={requestDeleteModels}
           />
         )}
@@ -165,7 +170,6 @@ const StudioShell: React.FC = () => {
             selectedModelId={activeLiveModelId}
             onSelectModel={setActiveLiveModelId}
             onEditModel={(model) => setEditingModelId(model.id)}
-            onOpenFeedSettings={() => openSettings('live')}
             onOpenTierManager={() => setTierManagerOpen(true)}
             onOpenImport={() => setImportOpen(true)}
             onJumpToResortDue={() => {
@@ -174,9 +178,9 @@ const StudioShell: React.FC = () => {
             }}
             returnLabel={
               returnViewFromLive === 'sorter'
-                ? 'Back to Rapid Sorter'
+                ? 'Back to Triage Deck'
                 : returnViewFromLive === 'kanban'
-                  ? 'Back to Kanban'
+                  ? 'Back to Visual Board'
                   : returnViewFromLive === 'grid'
                     ? 'Back to Data Grid'
                     : null
@@ -325,6 +329,30 @@ class AppErrorBoundary extends React.Component<
 }
 
 export function App() {
+  const urlParams =
+    typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search)
+      : null;
+  const isPip =
+    urlParams?.get('pip') === '1' || urlParams?.get('pip') === 'true';
+  const pipUsername = urlParams?.get('username') || '';
+  const pipMuted = urlParams?.get('muted') === '1';
+  const pipVideoOnly = urlParams?.get('videoOnly') !== '0';
+  const pipEmbedTemplate = urlParams?.get('embedTemplate') || undefined;
+
+  if (isPip && pipUsername) {
+    return (
+      <AppErrorBoundary>
+        <PipWindowView
+          username={pipUsername}
+          initialMuted={pipMuted}
+          initialVideoOnly={pipVideoOnly}
+          embedTemplate={pipEmbedTemplate}
+        />
+      </AppErrorBoundary>
+    );
+  }
+
   return (
     <AppErrorBoundary>
       <AppProvider>

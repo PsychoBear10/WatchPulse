@@ -6,12 +6,17 @@ import {
   Play,
   Plus,
   Search,
+  Table2,
   Trash2,
   X,
+  Zap,
 } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
 import { ModelRecord } from '../../types/models';
-import { getModelReviewStatus } from '../../utils/review';
+import {
+  DEFAULT_REVIEW_SPREAD_DAYS,
+  createModelReviewStatusHelper,
+} from '../../utils/review';
 import { CbexplorerToggle } from '../common/CbexplorerToggle';
 import { LinkPillGroup } from '../common/LinkPillGroup';
 import { ModelAvatar } from '../common/ModelAvatar';
@@ -20,6 +25,8 @@ interface KanbanViewProps {
   onEditModel: (model: ModelRecord) => void;
   onSilentPreview: (model: ModelRecord) => void;
   onOpenImport: () => void;
+  onOpenTriageDeck?: () => void;
+  onOpenDataGrid?: () => void;
   onJumpToDeckForTier: (tierId: string) => void;
   onRequestDelete: (models: ModelRecord[]) => void;
 }
@@ -36,6 +43,8 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
   onEditModel,
   onSilentPreview,
   onOpenImport,
+  onOpenTriageDeck,
+  onOpenDataGrid,
   onJumpToDeckForTier,
   onRequestDelete,
 }) => {
@@ -95,6 +104,25 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
   const [draggedModelId, setDraggedModelId] = useState<string | null>(null);
   const [dragOverColumnId, setDragOverColumnId] = useState<string | null>(null);
   const [dragOverCardId, setDragOverCardId] = useState<string | null>(null);
+
+  const reviewHelper = useMemo(
+    () =>
+      createModelReviewStatusHelper(
+        data.models,
+        data.tiers,
+        data.settings.defaultReviewCadenceDays,
+        data.settings.staleOfflineDays,
+        Date.now(),
+        data.settings.reviewSpreadDays ?? DEFAULT_REVIEW_SPREAD_DAYS
+      ),
+    [
+      data.models,
+      data.tiers,
+      data.settings.defaultReviewCadenceDays,
+      data.settings.staleOfflineDays,
+      data.settings.reviewSpreadDays,
+    ]
+  );
 
   const columns = useMemo<ColumnDef[]>(() => {
     const sortedTiers = [...data.tiers].sort((a, b) => a.order - b.order);
@@ -233,9 +261,31 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-      {/* Kanban Filter Bar */}
+      {/* Visual Board Filter Bar */}
       <div className="px-5 py-3 border-b border-white/[0.07] liquid-glass-header flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2.5">
+          {onOpenTriageDeck && (
+            <button
+              type="button"
+              onClick={onOpenTriageDeck}
+              title="Switch to Triage Deck (Ctrl+2)"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-200 border border-indigo-500/35 transition-colors active:scale-95"
+            >
+              <Zap className="w-3.5 h-3.5 text-indigo-300" />
+              Triage Deck
+            </button>
+          )}
+          {onOpenDataGrid && (
+            <button
+              type="button"
+              onClick={onOpenDataGrid}
+              title="Open Data Grid table for bulk editing (Ctrl+4)"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-white/[0.05] hover:bg-white/[0.1] text-slate-200 border border-white/10 transition-colors active:scale-95"
+            >
+              <Table2 className="w-3.5 h-3.5 text-indigo-300" />
+              Data Grid
+            </button>
+          )}
           <form onSubmit={handleSearchSubmit} className="relative w-72">
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
@@ -321,10 +371,10 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
           <button
             type="button"
             onClick={onOpenImport}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-white/[0.05] hover:bg-white/[0.1] text-slate-200 border border-white/10"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm transition-all active:scale-95"
           >
             <Plus className="w-3.5 h-3.5" />
-            Add Models
+            + Add Model
           </button>
         </div>
       </div>
@@ -461,17 +511,12 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
                                   <span className="text-xs font-semibold text-white truncate">
                                     {model.displayName || model.username}
                                   </span>
-                                  {getModelReviewStatus(
-                                    model,
-                                    data.tiers.find((t) => t.id === model.tierId),
-                                    data.settings.defaultReviewCadenceDays,
-                                    data.settings.staleOfflineDays
-                                  ).isDueForReview && (
+                                  {reviewHelper.getStatus(model).isDueForReview && (
                                     <span
-                                      title="Due for periodic tier re-sort"
+                                      title={`Due for periodic re-sort (Cadence + ${reviewHelper.getStatus(model).spreadOffsetDays}d random spread)`}
                                       className="px-1 py-0.2 rounded text-[9px] font-semibold bg-amber-500/20 text-amber-200 border border-amber-500/35 shrink-0"
                                     >
-                                      Due
+                                      Re-sort Due
                                     </span>
                                   )}
                                 </div>

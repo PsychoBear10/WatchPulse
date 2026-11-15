@@ -1,101 +1,94 @@
 # WatchPulse ⚡
-### Live Chaturbate Cam Monitor, Silent Preview & Rapid Triage Studio
+### The Private, Keyboard-First Chaturbate Cam Monitor & Watchlist Studio
 
 [![License: CC0-1.0](https://img.shields.io/badge/License-CC0_1.0-lightgrey.svg)](https://creativecommons.org/publicdomain/zero/1.0/)
-[![Latest Release](https://img.shields.io/badge/Release-v3.0.0-brightgreen.svg)](https://github.com/PsychoBear10/WatchPulse/releases/latest)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)](https://www.typescriptlang.org/)
-[![React](https://img.shields.io/badge/React-18-61dafb.svg)](https://react.dev/)
-[![Electron](https://img.shields.io/badge/Electron-34-47848f.svg)](https://www.electronjs.org/)
-[![Vite](https://img.shields.io/badge/Vite-6-646cff.svg)](https://vitejs.dev/)
+[![Latest Release](https://img.shields.io/badge/Release-v3.0.6-brightgreen.svg)](https://github.com/PsychoBear10/WatchPulse/releases/latest)
+[![Platform](https://img.shields.io/badge/Platform-Windows-blue.svg)](https://github.com/PsychoBear10/WatchPulse/releases/latest)
 
-> A standalone, keyboard-first desktop application (Electron + Vite + React + TypeScript) for live Chaturbate cam monitoring, silent multi-stream previews, periodic tier maintenance, rapid deck sorting, drag-and-drop Kanban organization, and full master grid management.
-
----
-
-## 🚀 Download & Installation
-
-**Latest Release: WatchPulse v3.0.0** (Major update featuring an Apple-style liquid glass design, three-way theme switcher, and keyboard Kanban search).
-
-### Windows Download:
-1. Head to the **[Latest Release (v3.0.0)](https://github.com/PsychoBear10/WatchPulse/releases/latest)** page.
-2. Download:
-   - **`WatchPulse-3.0.0-Setup.exe`** — Recommended Windows installer with desktop shortcut and automated in-place data preservation.
-   - **`WatchPulse-3.0.0-Portable.exe`** — Standalone, zero-install portable executable.
-3. Run the installer and launch WatchPulse. All data is kept 100% offline, local, and private.
+> **WatchPulse** is a fast, clean, and completely private Windows desktop application designed to track your favorite Chaturbate models, preview streams silently, see who's live in real-time, and organize models into custom playlists with easy hotkeys and drag-and-drop boards.
+>
+> 🔒 **100% Offline & Private:** No accounts, no sign-ins, and no cloud tracking. All your watchlists and settings are stored locally on your own computer.
 
 ---
 
-## Key Features
+## ⚡ Quick Download & Getting Started
 
-- **Liquid Glass UI & Three-Way Theme Switcher:** macOS/visionOS-inspired frosted acrylic aesthetic with squircle containers and top-edge specular glints. Switch seamlessly between **Dark** (Midnight Obsidian), **Grey** (Space Gray Studio), and **Light** (Ice Glass).
-- **Live Monitor & Silent Live View (`Ctrl+4`):** Track online, public, private, and offline status counts per tier. View real-time room topics and viewer counts, with an isolated, muted Electron `<webview>` preview featuring `Live Stream Embed`, `CBExplorer`, and `CBHours Stats` tabs.
-- **Periodic Re-Sort & 7×24 Activity Heatmap:** Track `lastReviewedAt` and `lastSeenLiveAt`, set per-tier review cadences, filter Rapid Sorter by **Due for Re-sort**, view locally logged 30-day active hours alongside 7×24 activity heatmaps, and see live **Usual · {confidencePct}%** schedule badges.
-- **Dynamic Tier & Category Manager (No Hardcoded Lists):** Create, rename, reorder (drag or arrow buttons), color-code, assign single-key hotkeys, and safely delete custom tiers. Customize the default **Unsorted / Inbox** state.
-- **CSV Import, Clipboard Paste & Regex Sanitizer:** Ingest `Model Name` / `Original Link` CSVs, TSVs, or plain username/URL lists while preserving leading/trailing underscores and hyphens (`_bamby_baby_`, `yvie_`). Automatically generates `CBHours`, `CBExplorer`, and `ArchiveBate` links.
-- **Three Synchronized Views:**
-  - **Rapid Sorter:** Hotkey deck sorting, `Space` to skip, `Z`/`Backspace` undo, and quick-edit model inspector.
-  - **Kanban Board:** Multi-column drag-and-drop workflow with real-time online status badges, fast keyboard search (<kbd>Ctrl+F</kbd> / <kbd>/</kbd>), match counter, and <kbd>Enter</kbd> card jump.
-  - **Master Data Grid:** Deep search, multi-field filtering, inline editing, and bulk actions.
-- **45-Day Recycling Bin & Local-First Persistence:** Atomically persisted local JSON storage (`watchpulse-data.json` + `.bak.json` in `%APPDATA%\watchpulse`, with automatic migration from legacy `%APPDATA%\modelsort-studio`) and local thumbnail caching (`local-media://`). Deleted models remain recoverable in the Recycling Bin for 45 days before automatic purge.
+Getting started takes less than a minute:
+
+1. Go to the **[Latest Release (v3.0.6)](https://github.com/PsychoBear10/WatchPulse/releases/latest)**.
+2. Download your preferred version:
+   - **`WatchPulse-3.0.6-Setup.exe`** *(Recommended)* — Quick installer that creates a desktop shortcut and keeps your data intact across updates.
+   - **`WatchPulse-3.0.6-Portable.exe`** — Portable version. Just double-click to run without installing anything.
+3. Open the app, paste a few model usernames or profile links, and you're ready to go!
 
 ---
 
-## Development & Build Scripts
+## ✨ What WatchPulse Does (In Plain English)
+
+### 🔴 Real-Time Live Cam Monitor & Watch Wall
+- Instantly see which models on your list are **Online**, in **Private**, or **Offline**.
+- View live room topics and viewer counts without opening heavy browser tabs.
+- Open the **Watch Wall** to view multiple active live streams side-by-side in a clean multi-stream grid.
+- **Auto-Drop Offline:** Automatically clears tiles when a stream ends so your wall only shows active cams.
+
+### 🎧 Muted, Fast Stream Previews
+- Click any model to open a silent, isolated live preview window.
+- Check out streams without ads, video clutter, or accidentally blasting audio.
+
+### 🗂️ Rapid Sorting & Custom Playlists (Triage Deck)
+- **Keyboard Flashcard Sorting:** Quickly cycle through models like a deck of cards. Press a single key on your keyboard to send them to custom playlists (e.g., `1` for Favorites, `2` for VIP, `3` for Casual).
+- **Kanban Board:** View and manage your models visually by dragging and dropping them between customizable playlist columns.
+- **Smart Re-Sort Reminders:** Set reminders (e.g. every 14 days) so you can periodically check back on models and keep your lists fresh. Review queues are smoothly spread out day-by-day so you never get overwhelmed.
+
+### ⏰ Smart Streaming Predictions
+- Shows a helpful **"Usual · 85%"** badge when a model is currently within their regular streaming hours, helping you catch broadcasts right on time.
+
+### 🎨 Apple-Style Liquid Glass Look
+- A sleek, modern design with smooth rounded glass panels and soft ambient depth.
+- Switch between three themes with one click: **Dark** (Midnight Obsidian), **Grey** (Space Gray Studio), or **Light** (Ice Glass).
+
+---
+
+## ⌨️ Useful Keyboard Shortcuts
+
+| Shortcut | Action |
+| :--- | :--- |
+| `Ctrl + 1` | Switch to **Live Monitor** (Grid, Watch Wall & Stage) |
+| `Ctrl + 2` | Switch to **Triage Deck** (Rapid Hotkey Sorter) |
+| `Ctrl + 3` | Switch to **Visual Board** (Drag-and-Drop Kanban) |
+| `Ctrl + 4` | Open **Silent Live Preview** |
+| `Ctrl + F` or `/` | Quick search models anywhere on the Kanban board |
+| `Space` | Skip to next model in Triage Deck |
+| `Z` or `Backspace` | Undo last sort action |
+
+---
+
+## 🛠️ For Developers & Building from Source
+
+If you want to modify WatchPulse or run it directly from source code:
+
+### Requirements
+- **Node.js** (v20 or newer recommended)
+- **npm**
+
+### Quick Setup
 
 ```bash
-# Install dependencies
+# 1. Install dependencies
 npm install
 
-# Run unit tests (sanitizer, CSV importer, exporter, JSON storage, activity stats)
-npm test
+# 2. Run unit tests
+node scripts/run-tests.mjs
 
-# Regenerate CHANGELOG.docx from changelog.json
-npm run changelog
-
-# Start Vite dev server + Electron window with hot reload
+# 3. Start development server with hot-reload
 npm run dev
 
-# Type-check and compile Electron + Vite production bundles
-npm run build
-
-# Build in-place NSIS update installer (.exe) + update CHANGELOG.docx -> release/
-npm run dist:nsis
-
-# Package standalone portable Windows executable (.exe) + update CHANGELOG.docx -> release/
-npm run dist:portable
-
-# Package both portable .exe and NSIS update installer (.exe) -> release/
+# 4. Build Windows installer and portable .exe
 npm run dist
 ```
 
 ---
 
-## Versioning, Updates & Changelog Policy
+## 📄 License
 
-- **First Public Release:** Launched publicly at `v2.0.9`.
-- **Major feature releases** increment to `v3` (`3.0.0`), `v4` (`4.0.0`), etc.
-- **Minor updates & fixes** increment `.xx` (`v2.09` → SemVer `2.0.9`, `v2.10` → `2.10.0`).
-- **Update-in-Place Data Preservation:** The app keeps `appId` (`com.modelsort.studio`) and `deleteAppDataOnUninstall: false` consistent across every release, upgrading binaries in place while preserving all data in `%APPDATA%\watchpulse\watchpulse-data.json`.
-- **Word Changelog (`CHANGELOG.docx`):** Release notes live in `changelog.json` and regenerate `CHANGELOG.docx` automatically via `npm run changelog` (also wired into `dist`, `dist:nsis`, and `dist:portable`).
-
-> **Note on Windows Builds:** `build.win.signAndEditExecutable` is set to `false` in `package.json` so `electron-builder` does not attempt to extract `winCodeSign` (which contains macOS symlinks that fail on Windows without Developer Mode or Administrator privileges). If you enable Windows Developer Mode and provide code-signing certificates, you can switch it back to `true`.
-
----
-
-## Architecture
-
-- `electron/main.ts` — Main process, window lifecycle, custom `local-media://` protocol for local image thumbnails, native file/export dialogs, and IPC handlers.
-- `electron/preload.ts` — Context-isolated `window.electronAPI` bridge.
-- `electron/storage.ts` — Atomic JSON persistence with backup rotation and schema sanitization.
-- `src/store/useAppStore.tsx` — Centralized state management, undo stack, and debounced disk persistence.
-- `src/utils/sanitizer.ts` — Regex username sanitizer and enrichment URL builder.
-- `src/utils/csvImporter.ts` — PapaParse-powered CSV/TSV/list ingestion and duplicate detection.
-- `src/utils/exporter.ts` — CSV, JSON, and grouped plain-text summary generators.
-- `src/components/views/` — `RapidSorterView.tsx`, `KanbanView.tsx`, and `DataGridView.tsx`.
-- `src/components/modals/` — `TierManagerModal.tsx`, `ImportModal.tsx`, `ModelEditorModal.tsx`, `ExportModal.tsx`, and `SettingsModal.tsx`.
-
----
-
-## License
-
-This project is dedicated to the public domain under the [Creative Commons Zero v1.0 Universal (CC0 1.0)](https://creativecommons.org/publicdomain/zero/1.0/) license. You are free to copy, modify, distribute, and perform the work, even for commercial purposes, without asking permission. See the [LICENSE](LICENSE) file for the full legal text.
+This project is dedicated to the public domain under the [Creative Commons Zero v1.0 Universal (CC0 1.0)](https://creativecommons.org/publicdomain/zero/1.0/) license. You are free to copy, modify, distribute, or run it, even for commercial purposes, without asking permission. See the [LICENSE](LICENSE) file for details.

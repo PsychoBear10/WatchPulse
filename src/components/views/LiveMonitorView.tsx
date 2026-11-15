@@ -13,6 +13,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Pencil,
+  PictureInPicture2,
   Pin,
   PinOff,
   Play,
@@ -27,12 +28,14 @@ import {
   Square,
   Tv,
   Users,
+  UserX,
   Volume2,
   VolumeX,
   Zap,
 } from 'lucide-react';
 import { useAppStore } from '../../store/useAppStore';
-import { LiveRoomInfo, ModelRecord } from '../../types/models';
+import { desktopBridge } from '../../services/bridge';
+import { LiveRoomInfo, ModelRecord, PipState } from '../../types/models';
 import {
   getUsuallyLiveNowMeta,
   UsuallyLiveNowMeta,
@@ -42,7 +45,11 @@ import {
   compareMonitorTierPriority,
   isPublicShowStatus,
 } from '../../utils/liveMonitorSort';
-import { formatRelativeAge, getModelReviewStatus } from '../../utils/review';
+import {
+  DEFAULT_REVIEW_SPREAD_DAYS,
+  createModelReviewStatusHelper,
+  formatRelativeAge,
+} from '../../utils/review';
 import { CbexplorerToggle } from '../common/CbexplorerToggle';
 import { LiveStreamPlayer } from '../common/LiveStreamPlayer';
 import { ModelAvatar } from '../common/ModelAvatar';
@@ -54,7 +61,7 @@ interface LiveMonitorViewProps {
   selectedModelId: string | null;
   onSelectModel: (modelId: string | null) => void;
   onEditModel: (model: ModelRecord) => void;
-  onOpenFeedSettings: () => void;
+  onOpenFeedSettings?: () => void;
   onOpenTierManager: () => void;
   onJumpToResortDue: () => void;
   onOpenImport: () => void;
@@ -121,7 +128,6 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
   selectedModelId,
   onSelectModel,
   onEditModel,
-  onOpenFeedSettings,
   onOpenTierManager,
   onJumpToResortDue,
   onOpenImport,
@@ -139,6 +145,7 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
     toggleManualLiveStatus,
     moveModelToTier,
     toggleCbexplorer,
+    updateSettings,
     notify,
   } = useAppStore();
 
@@ -167,6 +174,33 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
   const [wallMuted, setWallMuted] = useState(true);
   const [videoOnly, setVideoOnly] = useState(true);
   const [reloadToken, setReloadToken] = useState(0);
+  const [pipState, setPipState] = useState<PipState>({
+    isOpen: false,
+    username: null,
+  });
+
+  useEffect(() => {
+    void desktopBridge.getPipState().then(setPipState);
+    return desktopBridge.onPipStateChanged((state) => {
+      setPipState(state);
+    });
+  }, []);
+
+  const handleToggleStagePip = async (modelUsername?: string) => {
+    const target = modelUsername || activeModel?.username;
+    if (!target) return;
+    try {
+      const next = await desktopBridge.togglePip({
+        username: target,
+        muted: stageMuted,
+        videoOnly,
+        embedTemplate: data.settings.urlTemplates.livePreview,
+      });
+      setPipState(next);
+    } catch (err) {
+      console.warn('[WatchPulse] Failed to toggle PiP:', err);
+    }
+  };
 
   const activeMuted = layoutMode === 'single' ? stageMuted : wallMuted;
   const toggleActiveMuted = () => {
@@ -245,30 +279,34 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
     [sortedTiers]
   );
 
-  const enrichedModels = useMemo(() => {
-    const nowDate = new Date();
-    const nowMs = nowDate.getTime();
-    return data.models.map((model) => {
-      const live = liveRoomsByUsername[model.username.toLowerCase()];
-      const tier = tierMap.get(model.tierId);
-      const review = getModelReviewStatus(
-        model,
-        tier,
+  const reviewHelper = useMemo(
+    () =>
+      createModelReviewStatusHelper(
+        data.models,
+        data.tiers,
         data.settings.defaultReviewCadenceDays,
         data.settings.staleOfflineDays,
-        nowMs
-      );
+        Date.now(),
+        data.settings.reviewSpreadDays ?? DEFAULT_REVIEW_SPREAD_DAYS
+      ),
+    [
+      data.models,
+      data.tiers,
+      data.settings.defaultReviewCadenceDays,
+      data.settings.staleOfflineDays,
+      data.settings.reviewSpreadDays,
+    ]
+  );
+
+  const enrichedModels = useMemo(() => {
+    const nowDate = new Date();
+    return data.models.map((model) => {
+      const live = liveRoomsByUsername[model.username.toLowerCase()];
+      const review = reviewHelper.getStatus(model);
       const usuallyNow = getUsuallyLiveNowMeta(model, nowDate);
       return { model, live, isDue: review.isDueForReview, usuallyNow };
     });
-  }, [
-    data.models,
-    data.settings.defaultReviewCadenceDays,
-    data.settings.staleOfflineDays,
-    liveRoomsByUsername,
-    scheduleHourKey,
-    tierMap,
-  ]);
+  }, [data.models, liveRoomsByUsername, reviewHelper, scheduleHourKey]);
 
   const totalLiveCount = useMemo(
     () => enrichedModels.filter((item) => Boolean(item.live)).length,
@@ -629,6 +667,28 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
     );
   };
 
+  // Auto-drop offline models from Watch Wall when enabled in settings or toolbar
+  useEffect(() => {
+    if (!data.settings.autoDropOfflineStreams) return;
+    if (wallIds.length === 0) return;
+    // Guard against startup before live rooms have loaded
+    if (!livePollingState.lastPolledAt && Object.keys(liveRoomsByUsername).length === 0) return;
+
+    setWallIds((prev) => {
+      const liveOnly = prev.filter((id) => {
+        const m = data.models.find((x) => x.id === id);
+        return Boolean(m && liveRoomsByUsername[m.username.toLowerCase()]);
+      });
+      return liveOnly.length === prev.length ? prev : liveOnly;
+    });
+  }, [
+    data.models,
+    data.settings.autoDropOfflineStreams,
+    livePollingState.lastPolledAt,
+    liveRoomsByUsername,
+    wallIds.length,
+  ]);
+
   const handleCardHoverStart = (modelId: string, canPreview: boolean) => {
     if (!hoverPreviewEnabled || !canPreview) return;
     if (hoverTimerRef.current !== null) {
@@ -676,18 +736,18 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
 
   return (
     <div className="flex-1 flex min-h-0 overflow-hidden bg-canvas">
-      {/* Left Watchlist-Grouped Sidebar */}
+      {/* Left Watchlist-Grouped Sidebar — 3D Opaque Liquid Glass Floating */}
       {railOpen && (
-        <aside className="w-72 lg:w-80 shrink-0 border-r border-white/[0.08] bg-[#0C0F16] flex flex-col min-h-0">
-          <div className="p-3 border-b border-white/[0.07] space-y-2.5">
+        <aside className="w-72 lg:w-80 shrink-0 my-2 ml-2.5 mb-2.5 rounded-2xl liquid-sidebar-3d flex flex-col min-h-0 overflow-hidden z-10 transition-all duration-300">
+          <div className="p-3 border-b border-white/[0.08] bg-white/[0.02] backdrop-blur-md space-y-2.5">
             <div className="flex items-center justify-between gap-2">
               <button
                 type="button"
                 onClick={() => setOnlyLive((prev) => !prev)}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
                   onlyLive
                     ? 'bg-emerald-500/20 text-emerald-200 border-emerald-500/45 shadow-[0_0_14px_-4px_rgba(16,185,129,0.5)]'
-                    : 'bg-white/[0.04] text-slate-300 border-white/10 hover:border-white/20'
+                    : 'bg-white/[0.05] text-slate-300 border-white/10 hover:border-white/20'
                 }`}
               >
                 <span
@@ -719,26 +779,20 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
 
                 <button
                   type="button"
-                  onClick={() =>
-                    pullOnlineToWall(
-                      flatVisibleModels,
-                      onlyLive ? 'Live Watchlists' : 'Filtered Watchlists'
-                    )
-                  }
-                  disabled={totalLiveCount === 0}
-                  title="Pull all online models matching filters into Watch Wall"
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-200 hover:bg-white/10 border border-white/10 disabled:opacity-35"
-                >
-                  <LayoutGrid className="w-3.5 h-3.5" />
-                </button>
-
-                <button
-                  type="button"
                   onClick={onOpenTierManager}
                   title="Edit Watchlists / Playlists & Hotkeys (Ctrl+T)"
                   className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 border border-white/10"
                 >
                   <SlidersHorizontal className="w-3.5 h-3.5" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setRailOpen(false)}
+                  title="Hide Watchlist sidebar"
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 border border-white/10"
+                >
+                  <PanelLeftClose className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
@@ -870,7 +924,7 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
                 const isCollapsed = collapsedTiers.has(group.id);
                 return (
                   <div key={group.id} className="space-y-1">
-                    <div className="flex items-center justify-between gap-1 px-2 py-1 rounded-lg bg-[#131722] border border-white/[0.06]">
+                    <div className="flex items-center justify-between gap-1 px-2.5 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.07] border border-white/[0.08] shadow-[0_2px_8px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.08)] transition-all">
                       <button
                         type="button"
                         onClick={() =>
@@ -966,10 +1020,14 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
                                     </span>
                                     {usuallyNow.isUsuallyLiveNow && (
                                       <span
-                                        title={`${usuallyNow.label} (${usuallyNow.confidencePct}% 30-day match)`}
-                                        className="px-1.5 py-0.2 rounded text-[9px] font-semibold bg-sky-500/20 text-sky-200 border border-sky-400/30 shrink-0"
+                                        title={usuallyNow.label}
+                                        className={`px-1.5 py-0.2 rounded text-[9px] font-semibold border shrink-0 ${
+                                          usuallyNow.isExpectedSoon
+                                            ? 'bg-amber-500/20 text-amber-200 border-amber-400/35'
+                                            : 'bg-sky-500/20 text-sky-200 border-sky-400/30'
+                                        }`}
                                       >
-                                        Usual · {usuallyNow.confidencePct}%
+                                        {usuallyNow.badgeText || 'Usual'} · {usuallyNow.confidencePct}%
                                       </span>
                                     )}
                                     {isDue && (
@@ -1025,11 +1083,11 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
           </div>
 
           {totalDueCount > 0 && (
-            <div className="p-2.5 border-t border-white/[0.07]">
+            <div className="p-2.5 border-t border-white/[0.08] bg-white/[0.02]">
               <button
                 type="button"
                 onClick={onJumpToResortDue}
-                className="w-full py-1.5 rounded-lg text-xs font-medium bg-amber-500/15 hover:bg-amber-500/25 text-amber-200 border border-amber-500/35 inline-flex items-center justify-center gap-1.5"
+                className="w-full py-1.5 rounded-xl text-xs font-semibold bg-amber-500/15 hover:bg-amber-500/25 text-amber-200 border border-amber-500/35 inline-flex items-center justify-center gap-1.5 shadow-sm transition-all"
               >
                 <Zap className="w-3.5 h-3.5" />
                 Rapid Re-Sort {totalDueCount} Due Model(s)
@@ -1176,6 +1234,30 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
                   )}
                   {activeMuted ? 'Muted' : 'Audio On'}
                 </button>
+
+                {layoutMode === 'single' && activeModel && (
+                  <button
+                    type="button"
+                    onClick={() => handleToggleStagePip(activeModel.username)}
+                    title={
+                      pipState.isOpen && pipState.username === activeModel.username.toLowerCase()
+                        ? 'Stream is currently floating in Picture-in-Picture window. Click to close PiP and bring back to Stage.'
+                        : 'Picture-in-Picture — float this model\'s live stream above other apps and windows'
+                    }
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all active:scale-95 ${
+                      pipState.isOpen && pipState.username === activeModel.username.toLowerCase()
+                        ? 'bg-indigo-600 text-white border-indigo-400 ring-2 ring-indigo-400/50 shadow-glow'
+                        : 'bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 hover:text-white border-white/10'
+                    }`}
+                  >
+                    <PictureInPicture2 className="w-3.5 h-3.5 text-indigo-300" />
+                    <span>
+                      {pipState.isOpen && pipState.username === activeModel.username.toLowerCase()
+                        ? 'In PiP Window'
+                        : 'Picture in Picture'}
+                    </span>
+                  </button>
+                )}
               </>
             )}
 
@@ -1265,15 +1347,6 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
                 Sync Live
               </button>
             )}
-
-            <button
-              type="button"
-              onClick={onOpenFeedSettings}
-              title="Configure live feed & templates"
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 border border-white/10"
-            >
-              <Sliders className="w-3.5 h-3.5" />
-            </button>
           </div>
         </div>
 
@@ -1568,10 +1641,10 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
                           )
                         }
                         onMouseLeave={() => handleCardHoverEnd(model.id)}
-                        className={`group flex flex-col rounded-xl overflow-hidden border transition-all bg-[#0D1018] ${
+                        className={`group flex flex-col rounded-2xl overflow-hidden transition-all liquid-card-3d liquid-card-3d-interactive ${
                           live
-                            ? 'border-white/12 hover:border-indigo-400/50 shadow-md'
-                            : 'border-white/[0.06] opacity-70 hover:opacity-100'
+                            ? 'opacity-100'
+                            : 'opacity-70 hover:opacity-100'
                         }`}
                       >
                         {/* 16:9 Live Preview Area */}
@@ -1642,11 +1715,18 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
                             )}
                             {usuallyNow.isUsuallyLiveNow && (
                               <span
-                                title={`${usuallyNow.label} (${usuallyNow.confidencePct}% match)`}
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border backdrop-blur-sm bg-sky-500/25 text-sky-200 border-sky-400/40"
+                                title={usuallyNow.label}
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border backdrop-blur-sm ${
+                                  usuallyNow.isExpectedSoon
+                                    ? 'bg-amber-500/25 text-amber-200 border-amber-400/40'
+                                    : 'bg-sky-500/25 text-sky-200 border-sky-400/40'
+                                }`}
                               >
                                 <Clock className="w-2.5 h-2.5" />
-                                USUALLY NOW · {usuallyNow.confidencePct}%
+                                {usuallyNow.badgeText
+                                  ? usuallyNow.badgeText.toUpperCase()
+                                  : 'USUALLY NOW'}{' '}
+                                · {usuallyNow.confidencePct}%
                               </span>
                             )}
                             {live && live.numUsers > 0 && (
@@ -1662,6 +1742,20 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
                             className="absolute top-2 right-2 flex items-center gap-1"
                             onClick={(e) => e.stopPropagation()}
                           >
+                            {/* Jump Directly to Stage Mode Button */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                onSelectModel(model.id);
+                                setLayoutMode('single');
+                              }}
+                              title="Jump directly to Stage Mode for this model"
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-indigo-600 hover:bg-indigo-500 text-white border border-indigo-400/50 opacity-0 group-hover:opacity-100 focus:opacity-100 shadow-md transition-all active:scale-95"
+                            >
+                              <MonitorPlay className="w-3 h-3" />
+                              Stage
+                            </button>
+
                             {live && (
                               <button
                                 type="button"
@@ -1685,6 +1779,29 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
                                 Wall
                               </button>
                             )}
+                            {live && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void handleToggleStagePip(model.username);
+                                }}
+                                title={
+                                  pipState.isOpen &&
+                                  pipState.username === model.username.toLowerCase()
+                                    ? 'Close Picture in Picture window'
+                                    : 'Pop out stream into floating Picture-in-Picture window'
+                                }
+                                className={`p-1 rounded-md border transition-opacity ${
+                                  pipState.isOpen &&
+                                  pipState.username === model.username.toLowerCase()
+                                    ? 'bg-indigo-600 text-white border-indigo-400 opacity-100'
+                                    : 'bg-black/70 text-slate-300 hover:text-white hover:bg-white/20 border-white/15 opacity-0 group-hover:opacity-100 focus:opacity-100'
+                                }`}
+                              >
+                                <PictureInPicture2 className="w-3 h-3 text-indigo-300" />
+                              </button>
+                            )}
                             {live && !isHidden && (
                               <button
                                 type="button"
@@ -1699,7 +1816,7 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
                         </div>
 
                         {/* Card Footer */}
-                        <div className="p-2.5 space-y-1.5 bg-[#0E121B]">
+                        <div className="p-2.5 space-y-1.5 bg-white/[0.02] backdrop-blur-md border-t border-white/[0.06]">
                           <div className="flex items-center justify-between gap-2">
                             <button
                               type="button"
@@ -1811,7 +1928,7 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
                     </button>
                   )}
 
-                  {offlineOnWallCount > 0 && (
+                  {offlineOnWallCount > 0 && !data.settings.autoDropOfflineStreams && (
                     <button
                       type="button"
                       onClick={dropOfflineFromWall}
@@ -1820,6 +1937,28 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
                       Drop Offline ({offlineOnWallCount})
                     </button>
                   )}
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      updateSettings({
+                        autoDropOfflineStreams: !data.settings.autoDropOfflineStreams,
+                      })
+                    }
+                    title={
+                      data.settings.autoDropOfflineStreams
+                        ? 'Auto-Drop is ON: Models are automatically removed from the Watch Wall as soon as they log off.'
+                        : 'Auto-Drop is OFF: Click to automatically drop streams when models go offline.'
+                    }
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                      data.settings.autoDropOfflineStreams
+                        ? 'bg-rose-500/20 text-rose-200 border-rose-500/40 shadow-sm'
+                        : 'bg-white/[0.04] text-slate-300 border-white/10 hover:text-white hover:bg-white/[0.08]'
+                    }`}
+                  >
+                    <UserX className="w-3.5 h-3.5" />
+                    <span>Auto-Drop: {data.settings.autoDropOfflineStreams ? 'On' : 'Off'}</span>
+                  </button>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -1890,42 +2029,44 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
               )}
 
               {wallModels.length === 0 ? (
-                <div className="flex-1 flex flex-col items-center justify-center p-8 text-center max-w-md mx-auto space-y-3">
-                  <div className="w-12 h-12 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center">
-                    <LayoutGrid className="w-6 h-6 text-indigo-300" />
-                  </div>
-                  <h3 className="text-sm font-semibold text-white">
-                    Silent Watch Wall (Video Only)
-                  </h3>
-                  <p className="text-xs text-slate-400 leading-relaxed">
-                    Pull all currently active online models into a multi-stream muted video wall, hide unnecessary streams anytime, and restore all active models with one click.
-                  </p>
-                  <div className="flex flex-wrap items-center justify-center gap-2">
-                    {wallEligibleOnlineModels.length > 0 ? (
-                      <button
-                        type="button"
-                        onClick={readdAllActiveToWall}
-                        className="px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white"
-                      >
-                        Pull All Online Models ({wallEligibleOnlineModels.length})
-                      </button>
-                    ) : allOnlineModels.length > 0 && wallPublicOnly ? (
-                      <button
-                        type="button"
-                        onClick={() => setWallPublicOnly(false)}
-                        className="px-4 py-2 rounded-xl text-xs font-semibold bg-amber-600 hover:bg-amber-500 text-white"
-                      >
-                        Include {allOnlineModels.length} Private / Away Room(s)
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => void refreshLiveFeed(true)}
-                        className="px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white"
-                      >
-                        Sync Live Models
-                      </button>
-                    )}
+                <div className="flex-1 flex items-center justify-center p-6">
+                  <div className="max-w-md w-full p-8 rounded-2xl liquid-card-3d text-center space-y-4">
+                    <div className="w-14 h-14 mx-auto rounded-2xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center">
+                      <LayoutGrid className="w-7 h-7 text-indigo-300" />
+                    </div>
+                    <h3 className="text-base font-semibold text-white">
+                      Silent Watch Wall (Video Only)
+                    </h3>
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      Pull all currently active online models into a multi-stream muted video wall, hide unnecessary streams anytime, and restore all active models with one click.
+                    </p>
+                    <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                      {wallEligibleOnlineModels.length > 0 ? (
+                        <button
+                          type="button"
+                          onClick={readdAllActiveToWall}
+                          className="px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md transition-all active:scale-95"
+                        >
+                          Pull All Online Models ({wallEligibleOnlineModels.length})
+                        </button>
+                      ) : allOnlineModels.length > 0 && wallPublicOnly ? (
+                        <button
+                          type="button"
+                          onClick={() => setWallPublicOnly(false)}
+                          className="px-4 py-2 rounded-xl text-xs font-semibold bg-amber-600 hover:bg-amber-500 text-white shadow-md transition-all active:scale-95"
+                        >
+                          Include {allOnlineModels.length} Private / Away Room(s)
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => void refreshLiveFeed(true)}
+                          className="px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md transition-all active:scale-95"
+                        >
+                          Sync Live Models
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -1955,13 +2096,13 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
                     return (
                       <div
                         key={model.id}
-                        className={`relative flex flex-col rounded-xl overflow-hidden border bg-[#0B0D14] ${
+                        className={`relative flex flex-col rounded-2xl overflow-hidden liquid-card-3d ${
                           tileLive
-                            ? 'border-emerald-500/25'
+                            ? 'border-emerald-500/35'
                             : 'border-white/10 opacity-80'
                         } ${isFixedScrollTile ? 'aspect-video min-h-[240px]' : 'h-full min-h-0'}`}
                       >
-                        <div className="px-2.5 py-1.5 bg-[#11141E] border-b border-white/[0.08] flex items-center justify-between gap-2 shrink-0">
+                        <div className="px-3 py-1.5 bg-white/[0.03] backdrop-blur-md border-b border-white/[0.08] flex items-center justify-between gap-2 shrink-0">
                           <div className="flex items-center gap-1.5 min-w-0">
                             <span
                               className="w-2 h-2 rounded-full shrink-0"
@@ -2060,6 +2201,31 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
                 </button>
               </div>
             </div>
+          ) : pipState.isOpen &&
+            pipState.username === activeModel.username.toLowerCase() ? (
+            <div className="w-full h-full flex flex-col items-center justify-center gap-3 p-6 text-center bg-[#090B10]/95 backdrop-blur-xl">
+              <div className="w-14 h-14 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shadow-glow animate-pulse">
+                <PictureInPicture2 className="w-7 h-7" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-sm font-semibold text-white">
+                  Floating in Picture-in-Picture
+                </h3>
+                <p className="text-xs text-slate-400 max-w-sm">
+                  {activeModel.displayName || activeModel.username} is currently playing in a floating, always-on-top desktop window above all your apps.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => handleToggleStagePip(activeModel.username)}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg transition-all active:scale-95"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  Bring Back to Stage
+                </button>
+              </div>
+            </div>
           ) : (
             <LiveStreamPlayer
               username={activeModel.username}
@@ -2068,6 +2234,7 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
               embedTemplate={data.settings.urlTemplates.livePreview}
               reloadToken={reloadToken}
               liveRoom={activeLiveInfo}
+              showPipOverlay={false}
             />
           )}
         </div>

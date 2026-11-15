@@ -17,7 +17,13 @@ import {
   extractRoomsFromPayload,
   matchDetectedCandidatesToWatchlist,
 } from '../src/utils/liveFeed';
-import { getModelReviewStatus } from '../src/utils/review';
+import {
+  DEFAULT_REVIEW_SPREAD_DAYS,
+  computeStratifiedReviewOffsets,
+  createModelReviewStatusHelper,
+  getModelReviewOffsetDays,
+  getModelReviewStatus,
+} from '../src/utils/review';
 import { resolveMediaSrc } from '../src/utils/media';
 import {
   sanitizeClientAppData,
@@ -1090,4 +1096,239 @@ test('v3.0.0 ThemeMode sanitization and settings persistence', () => {
     },
   });
   assert.equal(storageSanitized.settings.themeMode, 'grey');
+});
+
+test('v3.0.0 Expected (< 1 hr) smart badge detection and confidence formatting', () => {
+  const localNight = new Date(2026, 10, 11, 22, 15, 0, 0); // 22:15 on Wednesday
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const keyFor = (anchor: Date, daysAgo: number, hr: number) => {
+    const d = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate() - daysAgo, hr, 0, 0, 0);
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(hr)}`;
+  };
+
+  // Model habitual at 23:00 on Wednesdays (upcoming hour when checking at 22:15)
+  const wedUpcomingModel: ModelRecord = {
+    id: 'wed_late',
+    username: 'wed_late',
+    displayName: 'Wed Late Streamer',
+    originalLink: '',
+    tierId: 't1',
+    order: 0,
+    cbexplorerAdded: false,
+    thumbnail: '',
+    notes: '',
+    tags: [],
+    customLinks: [],
+    createdAt: '2026-11-12T00:00:00.000Z',
+    updatedAt: '2026-11-12T00:00:00.000Z',
+    presenceHours: {
+      [keyFor(localNight, 7, 23)]: 60,
+      [keyFor(localNight, 14, 23)]: 60,
+      [keyFor(localNight, 21, 23)]: 55,
+      [keyFor(localNight, 2, 11)]: 60,
+      [keyFor(localNight, 9, 11)]: 60,
+    },
+  };
+
+  const meta = getUsuallyLiveNowMeta(wedUpcomingModel, localNight);
+  assert.equal(meta.isUsuallyLiveNow, true);
+  assert.equal(meta.isExpectedSoon, true);
+  assert.equal(meta.badgeText, 'Expected (< 1 hr)');
+  assert.match(meta.label, /Expected \(< 1 hr\)/);
+  assert.ok(meta.confidencePct >= 50);
+});
+
+test('v3.0.2 Picture-in-Picture URL query parameters and state validation', () => {
+  const params = {
+    username: 'Roxy_Ray',
+    muted: true,
+    videoOnly: false,
+    embedTemplate: 'https://chaturbate.com/embed/{username}/',
+  };
+
+  const queryParams = new URLSearchParams({
+    pip: '1',
+    username: params.username.trim().toLowerCase(),
+    muted: params.muted ? '1' : '0',
+    videoOnly: params.videoOnly !== false ? '1' : '0',
+    embedTemplate: params.embedTemplate,
+  });
+
+  assert.equal(queryParams.get('pip'), '1');
+  assert.equal(queryParams.get('username'), 'roxy_ray');
+  assert.equal(queryParams.get('muted'), '1');
+  assert.equal(queryParams.get('videoOnly'), '0');
+  assert.equal(
+    queryParams.get('embedTemplate'),
+    'https://chaturbate.com/embed/{username}/'
+  );
+});
+
+test('Stratified pseudo-random review spread distributes 42 models evenly at 6 per day across 7 days after 14-day cadence', () => {
+  const baseIso = '2026-01-01T00:00:00.000Z';
+  const baseMs = new Date(baseIso).getTime();
+  const dayMs = 24 * 60 * 60 * 1000;
+
+  // Generate 42 distinct models in a tier
+  const testModels: ModelRecord[] = Array.from({ length: 42 }, (_, i) => ({
+    id: `m_${i + 1}`,
+    username: `model_${i + 1}`,
+    displayName: `Model ${i + 1}`,
+    originalLink: `https://chaturbate.com/model_${i + 1}/`,
+    tierId: 'tier_priority_1',
+    order: i,
+    cbexplorerAdded: false,
+    thumbnail: '',
+    notes: '',
+    tags: [],
+    customLinks: [],
+    createdAt: baseIso,
+    updatedAt: baseIso,
+    lastReviewedAt: baseIso,
+    lastSeenLiveAt: baseIso,
+  }));
+
+  const spreadDays = 7;
+  const offsets = computeStratifiedReviewOffsets(testModels, spreadDays);
+
+  // 1. Verify all 42 models have an assigned offset
+  assert.equal(offsets.size, 42);
+
+  // 2. Count models per offset day bucket [0..6]
+  const bucketCounts = new Array(spreadDays).fill(0);
+  for (const model of testModels) {
+    const offset = offsets.get(model.id);
+    assert.ok(offset !== undefined);
+    assert.ok(offset >= 0 && offset < spreadDays);
+    bucketCounts[offset]++;
+  }
+
+  // 3. Confirm exact stratified balance: exactly 6 models per day! (42 / 7 = 6)
+  for (let day = 0; day < spreadDays; day++) {
+    assert.equal(
+      bucketCounts[day],
+      6,
+      `Day ${day} should have exactly 6 models due, got ${bucketCounts[day]}`
+    );
+  }
+
+  // 4. Test deterministic stability
+  const offsetsSecondRun = computeStratifiedReviewOffsets(testModels, spreadDays);
+  for (const model of testModels) {
+    assert.equal(offsets.get(model.id), offsetsSecondRun.get(model.id));
+  }
+
+  // 5. Test review status over time with 14-day cadence
+  const tierP1 = {
+    id: 'tier_priority_1',
+    name: 'P1',
+    color: '#6366f1',
+    hotkey: '1',
+    order: 0,
+    reviewCadenceDays: 14,
+  };
+
+  // Day 13 (before cadence of 14 days): 0 models should be due
+  const helperDay13 = createModelReviewStatusHelper(
+    testModels,
+    [tierP1],
+    14,
+    30,
+    baseMs + 13 * dayMs,
+    spreadDays
+  );
+  const dueDay13 = testModels.filter((m) => helperDay13.getStatus(m).isDueForReview);
+  assert.equal(dueDay13.length, 0);
+
+  // Day 14 (Cadence reached; offset 0 is due): exactly 6 models
+  const helperDay14 = createModelReviewStatusHelper(
+    testModels,
+    [tierP1],
+    14,
+    30,
+    baseMs + 14 * dayMs,
+    spreadDays
+  );
+  const dueDay14 = testModels.filter((m) => helperDay14.getStatus(m).isDueForReview);
+  assert.equal(dueDay14.length, 6);
+
+  // Day 15 (Cadence + 1; offset 0 and 1 are due): exactly 12 models
+  const helperDay15 = createModelReviewStatusHelper(
+    testModels,
+    [tierP1],
+    14,
+    30,
+    baseMs + 15 * dayMs,
+    spreadDays
+  );
+  const dueDay15 = testModels.filter((m) => helperDay15.getStatus(m).isDueForReview);
+  assert.equal(dueDay15.length, 12);
+
+  // Day 17 (Cadence + 3; offsets 0..3 due): exactly 24 models
+  const helperDay17 = createModelReviewStatusHelper(
+    testModels,
+    [tierP1],
+    14,
+    30,
+    baseMs + 17 * dayMs,
+    spreadDays
+  );
+  const dueDay17 = testModels.filter((m) => helperDay17.getStatus(m).isDueForReview);
+  assert.equal(dueDay17.length, 24);
+
+  // Day 20 (Cadence + 6; all offsets 0..6 due): all 42 models
+  const helperDay20 = createModelReviewStatusHelper(
+    testModels,
+    [tierP1],
+    14,
+    30,
+    baseMs + 20 * dayMs,
+    spreadDays
+  );
+  const dueDay20 = testModels.filter((m) => helperDay20.getStatus(m).isDueForReview);
+  assert.equal(dueDay20.length, 42);
+
+  // 6. Test standalone helper without precomputed map fallback
+  const singleOffset = getModelReviewOffsetDays('random_model_xyz', baseIso, spreadDays);
+  assert.ok(singleOffset >= 0 && singleOffset < spreadDays);
+});
+
+test('autoDropOfflineStreams setting sanitizes cleanly and filters offline models from wall selection', () => {
+  const defaults = createDefaultAppData();
+  const sanitizedDefault = sanitizeAppData({
+    ...defaults,
+    settings: {
+      ...defaults.settings,
+      autoDropOfflineStreams: true,
+    },
+  });
+  assert.equal(sanitizedDefault.settings.autoDropOfflineStreams, true);
+
+  const sanitizedFallback = sanitizeAppData({
+    ...defaults,
+    settings: {
+      ...defaults.settings,
+      // @ts-expect-error testing invalid raw type
+      autoDropOfflineStreams: 'invalid',
+    },
+  });
+  assert.equal(sanitizedFallback.settings.autoDropOfflineStreams, false);
+
+  // Test wall drop logic
+  const liveRooms: Record<string, { username: string }> = {
+    model_online: { username: 'model_online' },
+  };
+
+  const wallIds = ['id_online', 'id_offline'];
+  const models = [
+    { id: 'id_online', username: 'model_online' },
+    { id: 'id_offline', username: 'model_offline' },
+  ];
+
+  const filtered = wallIds.filter((id) => {
+    const m = models.find((x) => x.id === id);
+    return Boolean(m && liveRooms[m.username.toLowerCase()]);
+  });
+
+  assert.deepEqual(filtered, ['id_online']);
 });

@@ -7,6 +7,178 @@
   },
   "releases": [
     {
+      "displayVersion": "v3.06",
+      "semver": "3.0.6",
+      "date": "2026-11-15",
+      "releaseType": "Minor Update",
+      "summary": "Introduces stratified pseudo-random re-sort cadence spreading to distribute re-sorting queues evenly across time without surges, adds an Auto-Drop Offline streams feature for the Watch Wall, and extends the Apple iOS-style 3D opaque liquid glass aesthetic across Triage cards, Watchlist Grid, and Watch Wall tiles.",
+      "dataMigrationNote": "Seamless in-place update over v3.05 / 3.0.5 — fully backward-compatible with all v1.x/v2.x/v3.x databases. Preserves all models, custom tiers, hotkeys, thumbnails, and Recycling Bin history.",
+      "changes": [
+        {
+          "category": "Stratified Pseudo-Random Re-Sort Cadence Spreading",
+          "items": [
+            "Eliminated review queue spikes: When a playlist or tier review cadence (e.g. 14 days) elapses, models are pseudo-randomly stratified across a +7 day spread window so that triaging is spread out evenly day-by-day (e.g. exactly 6 models per day for a 42-model tier across 7 days).",
+            "Deterministic stability: The distribution uses stable FNV-1a pseudo-random hashing anchored to each model's review timestamp and ID, guaranteeing consistent daily queues without random jitter between app launches or reloads.",
+            "Configurable Spread Window: Added a new 'Cadence Random Spread (Days)' setting under Periodic Tier Re-Sort & Stale Thresholds in Settings, allowing users to customize or disable the spread window (default: 7 days)."
+          ]
+        },
+        {
+          "category": "Unified Re-Sort Badges & Filter Integration",
+          "items": [
+            "Updated Triage Deck (Rapid Sorter), Visual Board (Kanban), Data Grid, and Live Monitor sidebar with consistent 'Re-sort Due' badges and informative tooltips explaining the cadence and offset days.",
+            "In Triage Deck, users can browse normal tier queues (showing both sorted and due models) while the dedicated 'Due for Re-sort' filter selectively surfaces only models that have reached their randomized review threshold."
+          ]
+        },
+        {
+          "category": "Apple iOS-Style 3D Liquid Glass Visual Consistency",
+          "items": [
+            "Extended the Apple iOS / visionOS 3D opaque liquid glass aesthetic (.liquid-card-3d) from the Live Monitor sidebar across the entire application, including the central Triage Deck model card, stack ghost preview, Watchlist Grid model cards, and Watch Wall stream tiles.",
+            "Engineered multi-tier specular rim highlights, frosted depth, and ambient elevation shadows that seamlessly adapt across Dark, Grey, and Light theme modes."
+          ]
+        },
+        {
+          "category": "Auto-Drop Offline Streams on Watch Wall",
+          "items": [
+            "Added an 'Auto-Drop Offline' toggle button directly in the Watch Wall toolbar alongside a matching preference switch in Settings.",
+            "When enabled, video tiles for models that go offline are automatically and gracefully pruned from the Watch Wall in real time, preventing dead frames and keeping the wall populated strictly with active live streams."
+          ]
+        }
+      ]
+    },
+    {
+      "displayVersion": "v3.05",
+      "semver": "3.0.5",
+      "date": "2026-11-14",
+      "releaseType": "Minor Update",
+      "summary": "Declutters the Top Bar by removing redundant Import and Export buttons, establishes consistent '+ Add Model' actions across all Triage Library modes, and introduces an Apple iOS-style 3D opaque liquid glass floating side panel with elevated depth, specular highlights, and ambient floating shadows.",
+      "dataMigrationNote": "Seamless in-place update over v3.04 / 3.0.4 — fully backward-compatible with all v1.x/v2.x/v3.x databases. Preserves all models, custom tiers, hotkeys, thumbnails, and Recycling Bin history.",
+      "changes": [
+        {
+          "category": "Top Bar Declutter & Unified Triage Add Actions",
+          "items": [
+            "Removed the unnecessary Import and Export buttons from the main Top Bar, keeping the Live Monitor top navigation clean and distraction-free.",
+            "Retained and standardized a prominent '+ Add Model' button inside all Triage Model Library workflows (Triage Deck, Visual Board, and Data Grid)."
+          ]
+        },
+        {
+          "category": "Apple iOS-Style 3D Opaque Liquid Glass Floating Side Panel",
+          "items": [
+            "Transformed the Live Monitor side panel into an Apple iOS / visionOS-style floating opaque liquid glass surface with breathing margins, squircle geometry, and multi-tiered ambient drop shadows.",
+            "Engineered 3D specular rim highlights and inner bevel lighting that adapt across Dark, Grey, and Light theme modes.",
+            "Added an integrated close button inside the floating panel header and refined the search capsule, filter pills, and tier accordion cards for tactile depth."
+          ]
+        }
+      ]
+    },
+    {
+      "displayVersion": "v3.04",
+      "semver": "3.0.4",
+      "date": "2026-11-14",
+      "releaseType": "Minor Update",
+      "summary": "Declutters the Live Monitor sidebar by removing the redundant Watch Wall button, and eliminates the endless loop in deck sorting by tracking session-triaged models and adding dedicated skipped model review actions.",
+      "dataMigrationNote": "Seamless in-place update over v3.03 / 3.0.3 — fully backward-compatible with all v1.x/v2.x/v3.x databases. Preserves all models, custom tiers, hotkeys, thumbnails, and Recycling Bin history.",
+      "changes": [
+        {
+          "category": "Live Monitor Sidebar Declutter",
+          "items": [
+            "Removed the redundant 2x2 grid icon button from the Live Monitor sidebar header next to 'Only Live', removing duplicate navigation since dedicated Watch Wall buttons already exist in the subheader segment bar and action bar."
+          ]
+        },
+        {
+          "category": "Triage Deck Endless Loop Resolution",
+          "items": [
+            "Eliminated the endless cycling loop where models were continuously re-added ahead; models sorted into any tier or confirmed in their current tier are now tracked as triaged for the session and completed once.",
+            "Hardened card skipping: models skipped with Spacebar or the Skip button move to the end of the pass once, and if skipped again at the end, are cleanly completed rather than perpetually repeating.",
+            "Added an interactive Queue Complete state with quick-actions to 'Review Skipped Models' or 'Restart Deck Session', plus a live countdown of remaining models in queue."
+          ]
+        }
+      ]
+    },
+    {
+      "displayVersion": "v3.03",
+      "semver": "3.0.3",
+      "date": "2026-11-14",
+      "releaseType": "Minor Update",
+      "summary": "Streamlines TopNav navigation by unifying Rapid Sorter and Kanban Board into 'Triage Model Library', renames Kanban Board to 'Visual Board' with direct in-deck quick-switch buttons, adds a 1-click Stage jump button to Watchlist Grid cards on hover, and removes redundant subheader settings controls.",
+      "dataMigrationNote": "Seamless in-place update over v3.02 / 3.0.2 — fully backward-compatible with all v1.x/v2.x/v3.x databases. Preserves all models, custom tiers, hotkeys, thumbnails, and Recycling Bin history.",
+      "changes": [
+        {
+          "category": "Navigation & Workspace Streamlining",
+          "items": [
+            "Merged Rapid Sorter and Kanban Board into a unified 'Triage Model Library' tab in TopNav, decluttering top-level navigation to two clean hubs (Live Monitor & Triage Model Library).",
+            "Renamed 'Kanban Board' to 'Visual Board' to better reflect visual tier column sorting without agile jargon.",
+            "Added an 'Open Visual Board' button directly in the triage deck (alongside 'Open Data Grid') and reciprocal switch buttons inside Visual Board and Data Grid for seamless multi-mode triage."
+          ]
+        },
+        {
+          "category": "Watchlist Grid & Header Declutter",
+          "items": [
+            "Added a direct 'Stage' button to Watchlist Grid cards on hover, allowing instant 1-click jump into Stage Mode with live cam stream or profile inspection.",
+            "Removed the redundant Live Feed settings button from the Live Monitor subheader next to 'Sync Live', centralizing all studio preferences in TopNav Settings."
+          ]
+        }
+      ]
+    },
+    {
+      "displayVersion": "v3.02",
+      "semver": "3.0.2",
+      "date": "2026-11-13",
+      "releaseType": "Minor Update",
+      "summary": "Decluttered UI and rock-solid stability overhaul for Picture-in-Picture mode, introducing an Apple-style edge-to-edge floating mini-player window that bypasses all stream and DRM limitations, with autohiding glass controls, in-place model switching, and synchronized Stage playback.",
+      "dataMigrationNote": "Seamless in-place update over v3.01 / 3.0.1 — fully backward-compatible with all v1.x/v2.x/v3.x databases. Preserves all models, custom tiers, hotkeys, thumbnails, and Recycling Bin history.",
+      "changes": [
+        {
+          "category": "Native Desktop Always-On-Top Picture-in-Picture Mini-Player",
+          "items": [
+            "Replaced HTML5 video PiP (which is blocked by Chaturbate's webview sandbox and stream permissions policy) with a native Electron always-on-top floating desktop window.",
+            "Edge-to-edge pure video stream (100% full window, zero permanent chrome or black bars) with Apple-style frosted glass control capsule that autohides smoothly after 2.5s of inactivity.",
+            "Equipped with top edge drag region (double-click to return to Studio), live indicator, audio Mute/Unmute toggle, Video-Only mode, stream reload, and close shortcut.",
+            "In-place model switching via IPC event navigation without tearing down or reloading the window, eliminating flickering and memory leaks.",
+            "Decluttered Stage view by eliminating duplicate on-video PiP buttons and streamlining the PiP active placeholder to a single 'Bring Back to Stage' action.",
+            "Added guest WebContents crash resilience and render process recovery to prevent player freezes."
+          ]
+        }
+      ]
+    },
+    {
+      "displayVersion": "v3.01",
+      "semver": "3.0.1",
+      "date": "2026-11-13",
+      "releaseType": "Minor Update",
+      "summary": "Targeted polish update delivering Stage player Picture-in-Picture mode, 'Expected (< 1 hr)' smart schedule prediction badge with live confidence percentage, active cell region highlight on the Usually Active Heatmap, and complete high-contrast Light Mode visibility polish.",
+      "dataMigrationNote": "Seamless in-place update over v3 / 3.0.0 — fully backward-compatible with all v1.x/v2.x/v3.x databases. Preserves all models, custom tiers, hotkeys, thumbnails, and Recycling Bin history.",
+      "changes": [
+        {
+          "category": "Stage Mode Native Picture-in-Picture",
+          "items": [
+            "Introduced native HTML5 Picture-in-Picture directly through the Stage stream player, featuring an acrylic floating glass control button in the top-right video toolbar and an accessible top header shortcut.",
+            "Keeps your favorite live stream floating above all other windows and desktop workspaces with seamless video continuation and responsive exit/enter state tracking."
+          ]
+        },
+        {
+          "category": "Smart Schedule Prediction: 'Expected (< 1 hr)' Badge",
+          "items": [
+            "Added an intelligent pre-stream prediction detector for models expected to go live in the upcoming hour based on their 30-day habits.",
+            "Displays a distinctive amber 'Expected (< 1 hr) · {confidencePct}%' badge in both the Live Monitor sidebar and Watchlist Grid cards, complete with confidence percentage and detailed tooltip."
+          ]
+        },
+        {
+          "category": "Usually Active Heatmap Current Region Highlight",
+          "items": [
+            "Added a live, pulsing region indicator to the 30-day Usually Active Heatmap with glowing sky border and subtle scaling to immediately pinpoint your current day-of-week and local hour.",
+            "Added an active time live pill to the heatmap header and subtle day-row illumination with dynamic 30-second interval auto-refresh."
+          ]
+        },
+        {
+          "category": "Light Mode High-Contrast Visibility Polish",
+          "items": [
+            "Polished all Light Mode UI surfaces to ensure crisp contrast and WCAG AA legibility: preserved bright white text on primary indigo action buttons, eliminated washed-out pill badges, and elevated dark alpha wells to solid crisp cards.",
+            "Refined input borders, form controls, and custom light-theme scrollbars for clean macOS/visionOS desktop ergonomics."
+          ]
+        }
+      ]
+    },
+    {
       "displayVersion": "v3",
       "semver": "3.0.0",
       "date": "2026-11-13",
@@ -19,6 +191,7 @@
           "items": [
             "Redesigned the studio with macOS Sonoma and visionOS-inspired liquid glass aesthetics, featuring frosted acrylic backdrops, top-edge specular glints, soft depth shadows, and continuous squircle corners.",
             "Crafted a bespoke vector logo for WatchPulse with an iridescent iris pulse wave, glowing sensor pupil, and multi-layered glass reflections.",
+            "Updated application desktop, taskbar, installer, and web favicon icons (build/icon.ico, build/icon.png, public/favicon.ico, public/icon.png) to the new Apple liquid glass aperture logo across 6 native multi-resolution levels (256x256 down to 16x16).",
             "Introduced an Apple 3-position segmented theme switcher in TopNav and Settings supporting Dark Mode (Midnight Obsidian), Grey Mode (Space Gray Studio), and Light Mode (Ice Glass) with high-contrast legibility."
           ]
         },

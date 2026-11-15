@@ -298,6 +298,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   className="rounded border-white/20 bg-black/40 text-indigo-500"
                 />
               </label>
+
+              <label className="flex items-center justify-between gap-3 text-xs text-slate-200 cursor-pointer">
+                <div>
+                  <span>Auto-Drop Offline Streams on Watch Wall</span>
+                  <p className="text-[11px] text-slate-500 font-normal mt-0.5">
+                    Automatically remove stream tiles from the Watch Wall as soon as a model logs off
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={Boolean(data.settings.autoDropOfflineStreams)}
+                  onChange={(e) =>
+                    updateSettings({ autoDropOfflineStreams: e.target.checked })
+                  }
+                  className="rounded border-white/20 bg-black/40 text-indigo-500 shrink-0"
+                />
+              </label>
             </div>
 
             <div className="p-4 rounded-xl bg-black/30 border border-white/[0.08] space-y-3">
@@ -403,12 +420,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     Periodic Tier Re-Sort & Stale Thresholds
                   </h3>
                   <p className="text-[11px] text-slate-500 mt-0.5">
-                    Flag models whose tier hasn&apos;t been reviewed within N days (override per tier in Tiers &amp; Hotkeys).
+                    Flag models whose tier hasn&apos;t been reviewed within N days, spreading re-sorts randomly across an additional window to prevent review spikes.
                   </p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <div>
                   <label className="block text-[11px] font-medium text-slate-400 mb-1">
                     Default Review Cadence (Days, 0 = off)
@@ -428,6 +445,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     }
                     className="studio-input text-xs"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-400 mb-1">
+                    Cadence Random Spread (Days)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={60}
+                    value={data.settings.reviewSpreadDays ?? 7}
+                    onChange={(e) =>
+                      updateSettings({
+                        reviewSpreadDays: Math.max(
+                          0,
+                          Number.parseInt(e.target.value, 10) || 0
+                        ),
+                      })
+                    }
+                    className="studio-input text-xs"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Spreads re-sorting evenly over +N days
+                  </p>
                 </div>
 
                 <div>

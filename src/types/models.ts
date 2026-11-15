@@ -6,6 +6,7 @@ export interface TierDefinition {
   order: number;
   description?: string;
   reviewCadenceDays?: number;
+  reviewSpreadDays?: number;
 }
 
 export interface InboxConfig {
@@ -74,8 +75,10 @@ export interface AppSettings {
   deckSourceFilter: string;
   showKeyboardHints: boolean;
   defaultReviewCadenceDays: number;
+  reviewSpreadDays?: number;
   staleOfflineDays: number;
   trashRetentionDays: number;
+  autoDropOfflineStreams?: boolean;
   urlTemplates: UrlTemplates;
   liveFeed: LiveFeedConfig;
   themeMode?: ThemeMode;
@@ -177,6 +180,18 @@ export interface LiveStreamResolveResult {
   error?: string;
 }
 
+export interface PipParams {
+  username: string;
+  muted?: boolean;
+  videoOnly?: boolean;
+  embedTemplate?: string;
+}
+
+export interface PipState {
+  isOpen: boolean;
+  username: string | null;
+}
+
 export interface AppInfo {
   version: string;
   dataFilePath: string;
@@ -205,6 +220,13 @@ export interface ElectronBridgeAPI {
   fetchLiveJson: (url: string, authHeader?: string) => Promise<LiveFetchResult>;
   resolveLiveStream: (username: string) => Promise<LiveStreamResolveResult>;
   deleteThumbnail: (mediaUrl: string) => Promise<boolean>;
+  openPip?: (params: PipParams) => Promise<PipState>;
+  closePip?: () => Promise<boolean>;
+  togglePip?: (params: PipParams) => Promise<PipState>;
+  getPipState?: () => Promise<PipState>;
+  focusMainWindow?: () => Promise<void>;
+  onPipStateChanged?: (callback: (state: PipState) => void) => () => void;
+  onPipNavigate?: (callback: (params: PipParams) => void) => () => void;
 }
 
 declare global {

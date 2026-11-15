@@ -405,7 +405,7 @@ export const TierPlaylistManagerPanel: React.FC<TierPlaylistManagerPanelProps> =
                     {/* Re-sort Cadence (days) */}
                     <div
                       className="flex items-center gap-1 shrink-0"
-                      title="Re-sort cadence in days (0 = never flag for re-sort, blank = use global default)"
+                      title={`Re-sort cadence in days (0 = never flag, blank = global ${data.settings.defaultReviewCadenceDays}d). Models are pseudo-randomly distributed across an extra ${data.settings.reviewSpreadDays ?? 7}d spread window to avoid re-sort spikes.`}
                     >
                       <input
                         type="number"

@@ -1,6 +1,6 @@
 {
   "name": "watchpulse",
-  "version": "3.0.6",
+  "version": "3.0.9",
   "description": "WatchPulse — Live Chaturbate Cam Monitor, Silent Preview, Rapid Triage & Kanban Studio",
   "main": "dist-electron/main.js",
   "author": "WatchPulse",

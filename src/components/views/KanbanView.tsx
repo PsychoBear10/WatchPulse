@@ -86,18 +86,36 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  const KANBAN_PAGE_SIZE = 50;
+  const [columnLimits, setColumnLimits] = useState<Record<string, number>>({});
+
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (filteredModels.length > 0) {
       const firstId = filteredModels[0].id;
-      const el = document.getElementById(`kanban-card-${firstId}`);
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-        el.classList.add('ring-2', 'ring-indigo-400', 'shadow-glow');
-        window.setTimeout(() => {
-          el.classList.remove('ring-2', 'ring-indigo-400', 'shadow-glow');
-        }, 1400);
+      const model = filteredModels[0];
+      const colId = model.tierId;
+      const colCards = modelsByColumn.get(colId) ?? [];
+      const cardIdx = colCards.findIndex((m) => m.id === firstId);
+      if (cardIdx !== -1) {
+        const currentLimit = columnLimits[colId] ?? KANBAN_PAGE_SIZE;
+        if (cardIdx >= currentLimit) {
+          setColumnLimits((prev) => ({
+            ...prev,
+            [colId]: Math.ceil((cardIdx + 1) / KANBAN_PAGE_SIZE) * KANBAN_PAGE_SIZE,
+          }));
+        }
       }
+      setTimeout(() => {
+        const el = document.getElementById(`kanban-card-${firstId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+          el.classList.add('ring-2', 'ring-indigo-400', 'shadow-glow');
+          window.setTimeout(() => {
+            el.classList.remove('ring-2', 'ring-indigo-400', 'shadow-glow');
+          }, 1400);
+        }
+      }, 50);
     }
   };
 
@@ -386,6 +404,9 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
             const colCards = modelsByColumn.get(col.id) ?? [];
             const totalInCol = totalByColumn.get(col.id) ?? 0;
             const isDropTarget = dragOverColumnId === col.id;
+            const visibleLimit = columnLimits[col.id] ?? KANBAN_PAGE_SIZE;
+            const visibleCards = colCards.slice(0, visibleLimit);
+            const hasMoreCards = colCards.length > visibleLimit;
 
             return (
               <section
@@ -463,7 +484,8 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
                       {isDropTarget ? 'Drop card here' : 'No models in this tier'}
                     </div>
                   ) : (
-                    colCards.map((model) => {
+                    <>
+                      {visibleCards.map((model) => {
                       const isDragging = draggedModelId === model.id;
                       const isInsertTarget =
                         dragOverCardId === model.id && draggedModelId !== model.id;
@@ -514,7 +536,7 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
                                   {reviewHelper.getStatus(model).isDueForReview && (
                                     <span
                                       title={`Due for periodic re-sort (Cadence + ${reviewHelper.getStatus(model).spreadOffsetDays}d random spread)`}
-                                      className="px-1 py-0.2 rounded text-[9px] font-semibold bg-amber-500/20 text-amber-200 border border-amber-500/35 shrink-0"
+                                      className="px-1 py-0.5 rounded text-[9px] font-semibold bg-amber-500/20 text-amber-200 border border-amber-500/35 shrink-0"
                                     >
                                       Re-sort Due
                                     </span>
@@ -613,8 +635,23 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
                           </div>
                         </article>
                       );
-                    })
-                  )}
+                    })}
+                    {hasMoreCards && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setColumnLimits((prev) => ({
+                            ...prev,
+                            [col.id]: (prev[col.id] ?? KANBAN_PAGE_SIZE) + KANBAN_PAGE_SIZE,
+                          }))
+                        }
+                        className="w-full py-2 px-3 rounded-xl text-xs font-semibold bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 hover:text-white border border-white/10 transition-colors flex items-center justify-center gap-1.5 active:scale-[0.99]"
+                      >
+                        <span>Show more ({colCards.length - visibleLimit} remaining)</span>
+                      </button>
+                    )}
+                  </>
+                )}
                 </div>
               </section>
             );

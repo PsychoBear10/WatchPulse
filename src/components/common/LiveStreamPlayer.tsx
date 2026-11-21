@@ -23,6 +23,54 @@ const STREAM_RESOLVE_CACHE = new Map<
   { resolvedAt: number; result: LiveStreamResolveResult }
 >();
 const CACHE_TTL_MS = 20_000;
+const MAX_CACHE_ENTRIES = 100;
+const SWEEP_INTERVAL_MS = 30_000;
+
+function sweepExpiredEntries() {
+  const now = Date.now();
+  for (const [key, value] of STREAM_RESOLVE_CACHE.entries()) {
+    if (now - value.resolvedAt >= CACHE_TTL_MS) {
+      STREAM_RESOLVE_CACHE.delete(key);
+    }
+  }
+}
+
+function getCachedStreamResolve(key: string) {
+  const entry = STREAM_RESOLVE_CACHE.get(key);
+  if (!entry) return undefined;
+  if (Date.now() - entry.resolvedAt >= CACHE_TTL_MS) {
+    STREAM_RESOLVE_CACHE.delete(key);
+    return undefined;
+  }
+  // Refresh LRU order on access
+  STREAM_RESOLVE_CACHE.delete(key);
+  STREAM_RESOLVE_CACHE.set(key, entry);
+  return entry;
+}
+
+function setCachedStreamResolve(key: string, result: LiveStreamResolveResult) {
+  if (STREAM_RESOLVE_CACHE.has(key)) {
+    STREAM_RESOLVE_CACHE.delete(key);
+  } else if (STREAM_RESOLVE_CACHE.size >= MAX_CACHE_ENTRIES) {
+    // Evict oldest (LRU) entry
+    const oldestKey = STREAM_RESOLVE_CACHE.keys().next().value;
+    if (oldestKey !== undefined) {
+      STREAM_RESOLVE_CACHE.delete(oldestKey);
+    }
+  }
+  STREAM_RESOLVE_CACHE.set(key, {
+    resolvedAt: Date.now(),
+    result,
+  });
+}
+
+// Periodic sweep of expired entries to prevent heap memory accumulation
+if (typeof setInterval !== 'undefined') {
+  const sweepTimer = setInterval(sweepExpiredEntries, SWEEP_INTERVAL_MS);
+  if (typeof sweepTimer === 'object' && typeof (sweepTimer as any)?.unref === 'function') {
+    (sweepTimer as any).unref();
+  }
+}
 
 export const LiveStreamPlayer: React.FC<LiveStreamPlayerProps> = ({
   username,
@@ -134,7 +182,7 @@ export const LiveStreamPlayer: React.FC<LiveStreamPlayerProps> = ({
     lastReloadRef.current = reloadToken;
 
     const cleanKey = username.trim().toLowerCase();
-    const cached = !forceRefresh ? STREAM_RESOLVE_CACHE.get(cleanKey) : undefined;
+    const cached = !forceRefresh ? getCachedStreamResolve(cleanKey) : undefined;
     if (
       cached &&
       Date.now() - cached.resolvedAt < CACHE_TTL_MS &&
@@ -162,10 +210,7 @@ export const LiveStreamPlayer: React.FC<LiveStreamPlayerProps> = ({
 
     void desktopBridge.resolveLiveStream(cleanKey).then((res) => {
       if (cancelled) return;
-      STREAM_RESOLVE_CACHE.set(cleanKey, {
-        resolvedAt: Date.now(),
-        result: res,
-      });
+      setCachedStreamResolve(cleanKey, res);
       setResolving(false);
       setRoomStatus(res.roomStatus ?? liveRoom?.currentShow);
       if (res.ok && res.hlsUrl) {

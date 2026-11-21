@@ -111,6 +111,18 @@ export interface SaveFileResult {
   error?: string;
 }
 
+export interface LiveRoomInfo {
+  username: string;
+  currentShow: string;
+  numUsers: number;
+  roomSubject: string;
+  tags: string[];
+  isHd: boolean;
+  imageUrl: string;
+  iframeEmbed: string;
+  lastCheckedAt: string;
+}
+
 export interface LiveFetchResult {
   ok: boolean;
   status: number;

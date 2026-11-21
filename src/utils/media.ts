@@ -29,7 +29,7 @@ export function resolveMediaSrc(thumbnail: string): string {
 
 export function getInitials(label: string): string {
   const cleaned = label.replace(/[^a-zA-Z0-9_ ]/g, ' ').trim();
-  if (!cleaned) return 'MS';
+  if (!cleaned) return 'WP';
   const parts = cleaned.split(/[\s_]+/).filter(Boolean);
   if (parts.length >= 2) {
     return (parts[0][0] + parts[1][0]).toUpperCase();

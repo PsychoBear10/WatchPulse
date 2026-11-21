@@ -5,8 +5,10 @@ import { ExportModal } from './components/modals/ExportModal';
 import { ImportModal } from './components/modals/ImportModal';
 import { ModelEditorModal } from './components/modals/ModelEditorModal';
 import { RecyclingBinModal } from './components/modals/RecyclingBinModal';
+import { ScheduleMatrixModal } from './components/modals/ScheduleMatrixModal';
 import { SettingsModal, SettingsTab } from './components/modals/SettingsModal';
 import { TierManagerModal } from './components/modals/TierManagerModal';
+import { FloatingAuraBackground } from './components/common/FloatingAuraBackground';
 import { TopNav } from './components/TopNav';
 import { DataGridView } from './components/views/DataGridView';
 import { KanbanView } from './components/views/KanbanView';
@@ -32,6 +34,7 @@ const StudioShell: React.FC = () => {
   const [tierManagerOpen, setTierManagerOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [trashOpen, setTrashOpen] = useState(false);
+  const [scheduleMatrixOpen, setScheduleMatrixOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('general');
   const [editingModelId, setEditingModelId] = useState<string | null>(null);
@@ -50,6 +53,7 @@ const StudioShell: React.FC = () => {
     tierManagerOpen ||
     exportOpen ||
     trashOpen ||
+    scheduleMatrixOpen ||
     settingsOpen ||
     Boolean(editingModel) ||
     pendingDeleteModels.length > 0;
@@ -99,6 +103,9 @@ const StudioShell: React.FC = () => {
       } else if (key === 't') {
         e.preventDefault();
         setTierManagerOpen(true);
+      } else if (key === 'm') {
+        e.preventDefault();
+        setScheduleMatrixOpen((prev) => !prev);
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -114,7 +121,10 @@ const StudioShell: React.FC = () => {
   }
 
   return (
-    <div className="h-full flex flex-col bg-canvas text-slate-100 overflow-hidden">
+    <div className="h-full flex flex-col bg-canvas text-slate-100 overflow-hidden relative">
+      {/* Live Floating Aura Background (Atmospheric Cyber Cyan, Azure & Violet Glow) */}
+      <FloatingAuraBackground />
+
       <TopNav
         activeView={activeView}
         onChangeView={(view) => {
@@ -172,6 +182,7 @@ const StudioShell: React.FC = () => {
             onEditModel={(model) => setEditingModelId(model.id)}
             onOpenTierManager={() => setTierManagerOpen(true)}
             onOpenImport={() => setImportOpen(true)}
+            onOpenScheduleMatrix={() => setScheduleMatrixOpen(true)}
             onJumpToResortDue={() => {
               updateSettings({ deckSourceFilter: '__due__' });
               setActiveView('sorter');
@@ -206,6 +217,14 @@ const StudioShell: React.FC = () => {
       />
       <ExportModal open={exportOpen} onClose={() => setExportOpen(false)} />
       <RecyclingBinModal open={trashOpen} onClose={() => setTrashOpen(false)} />
+      <ScheduleMatrixModal
+        open={scheduleMatrixOpen}
+        onClose={() => setScheduleMatrixOpen(false)}
+        onSelectModel={(id) => {
+          setActiveLiveModelId(id);
+          setActiveView('live');
+        }}
+      />
       <SettingsModal
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}

@@ -176,6 +176,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       title="Settings & Under-the-Hood Config"
       subtitle={`WatchPulse v${appInfo?.version ?? '2.0.0'}`}
       maxWidthClass="max-w-4xl"
+      heightClass="h-[84vh] min-h-[580px] max-h-[820px]"
       disableEscapeClose={tab === 'playlists' && isRecordingHotkey}
       footer={
         <button
@@ -522,7 +523,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     Live Room Feed Poller (Zero-Config / Affiliate / Custom JSON)
                   </h3>
                   <p className="text-[11px] text-slate-500 mt-0.5">
-                    By default, WatchPulse polls CBExplorer&apos;s public CDN live rooms index (no campaign code required). You can also switch to a Chaturbate Affiliate <code className="text-indigo-300">wm</code> URL or custom/Statbate JSON feed. Placeholders:{' '}
+                    By default, WatchPulse polls Chaturbate&apos;s native live rooms API (zero-config, no affiliate campaign code required) plus direct watchlist fallback verification. You can also switch to a Chaturbate Affiliate <code className="text-indigo-300">wm</code> URL or custom JSON feed. Placeholders:{' '}
                     <code className="text-indigo-300">{'{wm}'}</code>,{' '}
                     <code className="text-indigo-300">{'{limit}'}</code>,{' '}
                     <code className="text-indigo-300">{'{offset}'}</code>.
@@ -647,10 +648,66 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[11px] font-medium text-slate-400 mb-1">
-                  Online Rooms API Endpoint Template
-                </label>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="block text-[11px] font-medium text-slate-400">
+                    Online Rooms API Endpoint Template
+                  </label>
+                  <div className="flex items-center gap-1.5 text-[10px]">
+                    <span className="text-slate-500">Presets:</span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateSettings({
+                          liveFeed: {
+                            ...data.settings.liveFeed,
+                            endpointTemplate:
+                              'https://chaturbate.com/api/ts/roomlist/room-list/?offset={offset}&limit={limit}',
+                            maxPages: 10,
+                          },
+                        })
+                      }
+                      className="px-2 py-0.5 rounded bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/30 text-indigo-300 font-medium transition-colors"
+                      title="Direct Chaturbate API - Zero setup required"
+                    >
+                      Chaturbate Native
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateSettings({
+                          liveFeed: {
+                            ...data.settings.liveFeed,
+                            endpointTemplate:
+                              'https://chaturbate.com/api/public/affiliates/onlinerooms/?wm={wm}&format=json&limit={limit}&offset={offset}',
+                            maxPages: 5,
+                          },
+                        })
+                      }
+                      className="px-2 py-0.5 rounded bg-white/[0.06] hover:bg-white/10 border border-white/10 text-slate-300 transition-colors"
+                      title="Affiliate Program API - Requires wm code"
+                    >
+                      Affiliate API
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateSettings({
+                          liveFeed: {
+                            ...data.settings.liveFeed,
+                            endpointTemplate:
+                              'https://cbexplorer.com/cbexplorer_users_online_v3.json',
+                            maxPages: 1,
+                          },
+                        })
+                      }
+                      className="px-2 py-0.5 rounded bg-white/[0.06] hover:bg-white/10 border border-white/10 text-slate-300 transition-colors"
+                      title="CBExplorer public room list"
+                    >
+                      CBExplorer
+                    </button>
+                  </div>
+                </div>
                 <input
                   type="text"
                   value={data.settings.liveFeed.endpointTemplate}

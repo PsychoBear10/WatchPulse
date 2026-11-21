@@ -31,15 +31,21 @@ const LEGACY_DEFAULT_LIVE_PREVIEW_TEMPLATES = new Set([
 export const DEFAULT_LIVE_FEED: LiveFeedConfig = {
   enabled: true,
   endpointTemplate:
-    'https://cbexplorer.nyc3.cdn.digitaloceanspaces.com/cbexplorer_users_online_v3.json',
+    'https://chaturbate.com/api/ts/roomlist/room-list/?offset={offset}&limit={limit}',
   affiliateWm: '',
   authHeader: '',
   refreshIntervalSec: 45,
-  maxPages: 5,
+  maxPages: 10,
   autoRefreshSnapshots: true,
 };
 
 const LEGACY_DEFAULT_FEED_TEMPLATES = new Set([
+  'https://cbexplorer.com/cbexplorer_users_online_v3.json',
+  'https://cbexplorer.com/api/cb_users_online_v3.json',
+  'https://cbexplorer.nyc3.cdn.digitaloceanspaces.com/cbexplorer_users_online_v3.json',
+  'https://cbexplorer.nyc3.digitaloceanspaces.com/cbexplorer_users_online_v3.json',
+  'https://cbexplorer.nyc3.cdn.digitaloceanspaces.com/api/cb_users_online_v3.json',
+  'https://cbexplorer.nyc3.digitaloceanspaces.com/api/cb_users_online_v3.json',
   'https://chaturbate.com/api/public/affiliates/onlinerooms/?wm={wm}&format=json&limit=500&offset={offset}',
   'https://chaturbate.com/api/public/affiliates/onlinerooms/?wm={wm}&format=json&limit={limit}&offset={offset}',
   'https://chaturbate.com/api/public/affiliates/onlinerooms/?wm={wm}&client_ip=request_ip&format=json&limit={limit}&offset={offset}',
@@ -487,7 +493,15 @@ export function sanitizeAppData(raw: unknown): AppData {
           typeof liveFeedRaw.affiliateWm === 'string'
             ? liveFeedRaw.affiliateWm.trim()
             : '';
-        if (!rawTpl) return DEFAULT_LIVE_FEED.endpointTemplate;
+        if (
+          !rawTpl ||
+          rawTpl.includes('cbexplorer_users_online_v3.json') ||
+          rawTpl.includes('cb_users_online_v3.json') ||
+          rawTpl.includes('digitaloceanspaces.com') ||
+          rawTpl.includes('cbexplorer.com')
+        ) {
+          return DEFAULT_LIVE_FEED.endpointTemplate;
+        }
         if (LEGACY_DEFAULT_FEED_TEMPLATES.has(rawTpl)) {
           return wmVal
             ? 'https://chaturbate.com/api/public/affiliates/onlinerooms/?wm={wm}&client_ip=request_ip&format=json&limit={limit}&offset={offset}'
@@ -542,11 +556,51 @@ export function sanitizeAppData(raw: unknown): AppData {
   };
 }
 
+async function renameWithRetry(source: string, destination: string, maxRetries = 10): Promise<void> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      await fs.rename(source, destination);
+      return;
+    } catch (err: unknown) {
+      const code = (err as NodeJS.ErrnoException)?.code;
+      if ((code === 'EBUSY' || code === 'EPERM') && attempt < maxRetries) {
+        await new Promise((resolve) => setTimeout(resolve, 20 * (attempt + 1)));
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
+function renameWithRetrySync(source: string, destination: string, maxRetries = 10): void {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      fsSync.renameSync(source, destination);
+      return;
+    } catch (err: unknown) {
+      const code = (err as NodeJS.ErrnoException)?.code;
+      if ((code === 'EBUSY' || code === 'EPERM') && attempt < maxRetries) {
+        const delayMs = 15 * (attempt + 1);
+        try {
+          const shared = new Int32Array(new SharedArrayBuffer(4));
+          Atomics.wait(shared, 0, 0, delayMs);
+        } catch {
+          const end = Date.now() + delayMs;
+          while (Date.now() < end) {}
+        }
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
 export class JsonStorageService {
   private readonly filePath: string;
   private readonly backupPath: string;
   private writeQueue: Promise<void> = Promise.resolve();
   private writeSeq = 0;
+  private lastSyncSeq = 0;
 
   constructor(
     private readonly userDataDir: string,
@@ -586,7 +640,7 @@ export class JsonStorageService {
     const tempPath = `${this.filePath}.${Date.now()}.${++this.writeSeq}.tmp`;
     try {
       await fs.writeFile(tempPath, serialized, 'utf-8');
-      await fs.rename(tempPath, this.filePath);
+      await renameWithRetry(tempPath, this.filePath);
     } catch (err) {
       await fs.rm(tempPath, { force: true }).catch(() => {});
       throw err;
@@ -659,6 +713,17 @@ export class JsonStorageService {
         return initial;
       }
 
+      // Preserve corrupted primary file before attempting recovery or reset
+      try {
+        const stat = await fs.stat(this.filePath);
+        if (stat.isFile() && stat.size > 0) {
+          const corruptBackupName = `watchpulse-data.corrupt-${Date.now()}.json`;
+          await fs.copyFile(this.filePath, path.join(this.userDataDir, corruptBackupName));
+        }
+      } catch {
+        // ignore if primary was missing or unreadable
+      }
+
       // Attempt recovery from backup file if primary JSON is corrupted
       try {
         const backupContent = await fs.readFile(this.backupPath, 'utf-8');
@@ -667,17 +732,15 @@ export class JsonStorageService {
         await this.writePrimaryOnly(repaired).catch(() => {});
         return repaired;
       } catch {
-        // Preserve corrupted non-empty primary file for manual inspection before resetting
+        // Preserve corrupted backup file if it also failed
         try {
-          const stat = await fs.stat(this.filePath);
+          const stat = await fs.stat(this.backupPath);
           if (stat.isFile() && stat.size > 0) {
-            await fs.copyFile(
-              this.filePath,
-              `${this.filePath}.corrupt-${Date.now()}.bak`
-            );
+            const corruptBackupName = `watchpulse-data.bak.corrupt-${Date.now()}.json`;
+            await fs.copyFile(this.backupPath, path.join(this.userDataDir, corruptBackupName));
           }
         } catch {
-          // ignore if primary was missing or unreadable
+          // ignore if backup was missing or unreadable
         }
         const fallback = createDefaultAppData();
         await this.save(fallback);
@@ -688,13 +751,26 @@ export class JsonStorageService {
 
   public async save(data: AppData): Promise<AppData> {
     const clean = sanitizeAppData(data);
+    const mySeq = ++this.writeSeq;
+
     const runWrite = async () => {
+      // If a newer sync write occurred, skip this older queued write
+      if (mySeq < this.lastSyncSeq) {
+        return;
+      }
+
       await fs.mkdir(this.userDataDir, { recursive: true });
       const serialized = JSON.stringify(clean, null, 2);
-      const tempPath = `${this.filePath}.${Date.now()}.${++this.writeSeq}.tmp`;
+      const tempPath = `${this.filePath}.${Date.now()}.${mySeq}.tmp`;
 
       try {
         await fs.writeFile(tempPath, serialized, 'utf-8');
+
+        // Check again after write if a sync save happened in the meantime
+        if (mySeq < this.lastSyncSeq) {
+          await fs.rm(tempPath, { force: true }).catch(() => {});
+          return;
+        }
 
         // Rotate current file to backup only if current primary is valid JSON
         if (await this.isValidJsonFile(this.filePath)) {
@@ -705,7 +781,13 @@ export class JsonStorageService {
           }
         }
 
-        await fs.rename(tempPath, this.filePath);
+        // Check again before rename
+        if (mySeq < this.lastSyncSeq) {
+          await fs.rm(tempPath, { force: true }).catch(() => {});
+          return;
+        }
+
+        await renameWithRetry(tempPath, this.filePath);
       } catch (err) {
         await fs.rm(tempPath, { force: true }).catch(() => {});
         throw err;
@@ -720,9 +802,14 @@ export class JsonStorageService {
 
   public saveSync(data: AppData): AppData {
     const clean = sanitizeAppData(data);
+    const syncSeq = ++this.writeSeq;
+    this.lastSyncSeq = syncSeq;
+    // Drain pending write queue so async writes in flight know they are superseded
+    this.writeQueue = Promise.resolve();
+
     fsSync.mkdirSync(this.userDataDir, { recursive: true });
     const serialized = JSON.stringify(clean, null, 2);
-    const tempPath = `${this.filePath}.${Date.now()}.${++this.writeSeq}.sync.tmp`;
+    const tempPath = `${this.filePath}.${Date.now()}.${syncSeq}.sync.tmp`;
     try {
       fsSync.writeFileSync(tempPath, serialized, 'utf-8');
       if (this.isValidJsonFileSync(this.filePath)) {
@@ -732,7 +819,7 @@ export class JsonStorageService {
           // Optional backup copy
         }
       }
-      fsSync.renameSync(tempPath, this.filePath);
+      renameWithRetrySync(tempPath, this.filePath);
     } catch (err) {
       try {
         fsSync.rmSync(tempPath, { force: true });

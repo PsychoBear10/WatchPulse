@@ -169,7 +169,7 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({
             <span className="truncate">Usually Active Heatmap (Local Time · Last 30d)</span>
             <span
               title="Current local hour cell is highlighted with a cyan border"
-              className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-sky-500/15 text-sky-300 border border-sky-400/30 text-[9px] font-mono shrink-0"
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-400/30 text-[9px] font-mono shrink-0"
             >
               <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse" />
               {DAY_LABELS[currentDayIdx]} {String(currentHour).padStart(2, '0')}:00

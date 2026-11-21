@@ -32,7 +32,8 @@ const ROUTE_PREFIX_SEGMENTS = new Set([
   'in',
 ]);
 
-const DOMAIN_LIKE_REGEX = /^(?:https?:\/\/|\/\/)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?:[/?#:]|$)/i;
+const DOMAIN_LIKE_REGEX =
+  /^(?:(?:https?:\/\/|\/\/)(?:[a-z0-9-]+\.)+[a-z]{2,}(?:[/?#:]|$)|(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?\/)/i;
 
 export function isLikelyUrl(input: string): boolean {
   const trimmed = input.trim();
@@ -60,13 +61,21 @@ export function sanitizeUsername(rawInput: string): string {
   // Remove leading @ handle prefix if present
   value = value.replace(/^@+/, '').trim();
 
-  // If it looks like a URL or domain/path, extract the username segment from URL path
-  if (isLikelyUrl(value)) {
+  // If it looks like a URL or domain/path, extract the username segment from URL path.
+  // Require an explicit protocol (https?:// or //) or forward slash (/) to treat input as a domain URL.
+  const hasExplicitProtocolOrSlash =
+    /^https?:\/\//i.test(value) || /^\/\//.test(value) || value.includes('/');
+
+  if (isLikelyUrl(value) && hasExplicitProtocolOrSlash) {
     const normalizedUrl = normalizeExternalUrl(value);
     try {
       const parsed = new URL(normalizedUrl);
       const queryRoom =
-        parsed.searchParams.get('room') || parsed.searchParams.get('b');
+        parsed.searchParams.get('room') ||
+        parsed.searchParams.get('b') ||
+        parsed.searchParams.get('u') ||
+        parsed.searchParams.get('user') ||
+        parsed.searchParams.get('model');
       const segments = parsed.pathname
         .split('/')
         .map((seg) => decodeURIComponent(seg).trim())
@@ -85,9 +94,14 @@ export function sanitizeUsername(rawInput: string): string {
         ) {
           index += 1;
         }
-        value = index < segments.length ? segments[index] : '';
+        value =
+          index < segments.length
+            ? segments[index]
+            : queryRoom
+              ? queryRoom.trim()
+              : '';
       } else {
-        value = '';
+        value = queryRoom ? queryRoom.trim() : '';
       }
     } catch {
       // Fallback regex extraction if URL constructor rejects malformed strings
@@ -130,6 +144,15 @@ export function sanitizeUsername(rawInput: string): string {
   return value;
 }
 
+function isValidHttpUrl(urlString: string): boolean {
+  try {
+    const parsed = new URL(urlString);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
 function applyUsernameTemplate(template: string, encodedUsername: string): string {
   if (template.includes('{username}')) {
     return template.replace(/\{username\}/g, encodedUsername);
@@ -146,19 +169,16 @@ export function buildModelUrls(
 ): ModelUrls {
   const clean = sanitizeUsername(username) || username.trim().toLowerCase();
   const encoded = encodeURIComponent(clean);
+
+  const resolveSafe = (candidate: string | undefined, fallback: string) => {
+    const raw = applyUsernameTemplate(candidate?.trim() || fallback, encoded);
+    return isValidHttpUrl(raw) ? raw : applyUsernameTemplate(fallback, encoded);
+  };
+
   return {
-    cbhours: applyUsernameTemplate(
-      templates?.cbhours?.trim() || FALLBACK_TEMPLATES.cbhours,
-      encoded
-    ),
-    cbexplorer: applyUsernameTemplate(
-      templates?.cbexplorer?.trim() || FALLBACK_TEMPLATES.cbexplorer,
-      encoded
-    ),
-    archivebate: applyUsernameTemplate(
-      templates?.archivebate?.trim() || FALLBACK_TEMPLATES.archivebate,
-      encoded
-    ),
+    cbhours: resolveSafe(templates?.cbhours, FALLBACK_TEMPLATES.cbhours),
+    cbexplorer: resolveSafe(templates?.cbexplorer, FALLBACK_TEMPLATES.cbexplorer),
+    archivebate: resolveSafe(templates?.archivebate, FALLBACK_TEMPLATES.archivebate),
   };
 }
 
@@ -170,10 +190,13 @@ export function buildLivePreviewUrl(
 ): string {
   const clean = sanitizeUsername(username) || username.trim().toLowerCase();
   const encoded = encodeURIComponent(clean);
-  const resolved = applyUsernameTemplate(
+  const candidate = applyUsernameTemplate(
     template?.trim() || FALLBACK_TEMPLATES.livePreview,
     encoded
   );
+  const resolved = isValidHttpUrl(candidate)
+    ? candidate
+    : applyUsernameTemplate(FALLBACK_TEMPLATES.livePreview, encoded);
 
   try {
     const parsed = new URL(resolved);

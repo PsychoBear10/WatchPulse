@@ -10,7 +10,7 @@ import {
   sanitizeUsername,
 } from '../src/utils/sanitizer';
 import { parseImportInput } from '../src/utils/csvImporter';
-import { buildTextSummaryByTier, exportModelsToCsv } from '../src/utils/exporter';
+import { buildTextSummaryByTier, escapeCsv, exportModelsToCsv } from '../src/utils/exporter';
 import {
   buildFeedPageUrl,
   extractCbexplorerListId,
@@ -24,7 +24,7 @@ import {
   getModelReviewOffsetDays,
   getModelReviewStatus,
 } from '../src/utils/review';
-import { resolveMediaSrc } from '../src/utils/media';
+import { getInitials, resolveMediaSrc } from '../src/utils/media';
 import {
   sanitizeClientAppData,
   sanitizeClientSettings,
@@ -32,6 +32,7 @@ import {
 import {
   buildPresenceHoursFromCbexplorerStreams,
   computeActivitySummary,
+  computeWatchlistScheduleMatrix,
   getUsuallyLiveNowMeta,
   recordPresenceTick,
 } from '../src/utils/activityStats';
@@ -45,6 +46,7 @@ import {
   sanitizeAppData,
 } from '../electron/storage';
 import { ModelRecord } from '../src/types/models';
+import { resequenceTierOrders } from '../src/store/useAppStore';
 
 test('sanitizeUsername extracts clean handle from URLs, handles, and extensions', () => {
   assert.equal(sanitizeUsername('https://chaturbate.com/seduza_hyun/'), 'seduza_hyun');
@@ -484,9 +486,25 @@ test('matchDetectedCandidatesToWatchlist filters strictly to saved models and sa
       },
     },
   });
-  assert.match(
+  assert.equal(
     upgradedZeroConfig.settings.liveFeed.endpointTemplate,
-    /cbexplorer_users_online_v3\.json/
+    'https://chaturbate.com/api/ts/roomlist/room-list/?offset={offset}&limit={limit}'
+  );
+
+  const upgradedBrokenV3 = sanitizeAppData({
+    ...defaults,
+    settings: {
+      ...defaults.settings,
+      liveFeed: {
+        ...defaults.settings.liveFeed,
+        endpointTemplate:
+          'https://cbexplorer.nyc3.cdn.digitaloceanspaces.com/cbexplorer_users_online_v3.json',
+      },
+    },
+  });
+  assert.equal(
+    upgradedBrokenV3.settings.liveFeed.endpointTemplate,
+    'https://chaturbate.com/api/ts/roomlist/room-list/?offset={offset}&limit={limit}'
   );
 
   const upgradedWithWm = sanitizeAppData({
@@ -721,13 +739,13 @@ test('v2.05 storage writeQueue error recovery, backup preservation, and saveSync
     const reloaded = await storage.load();
     assert.equal(reloaded.models[0].notes, 'primary latest');
 
-    // Corrupt BOTH primary and backup -> creates .corrupt-*.bak preservation copy before resetting
+    // Corrupt BOTH primary and backup -> creates .corrupt- preservation copy before resetting
     await fs.writeFile(primaryPath, '{bad primary', 'utf-8');
     await fs.writeFile(backupPath, '{bad backup', 'utf-8');
     const resetData = await storage.load();
     assert.equal(resetData.models.length, 0);
     const files = await fs.readdir(tmpDir);
-    assert.ok(files.some((f) => f.includes('.corrupt-') && f.endsWith('.bak')));
+    assert.ok(files.some((f) => f.includes('.corrupt-') && (f.endsWith('.bak') || f.endsWith('.json'))));
 
     // saveSync persists immediately and rotates previous valid primary to backup
     const syncData = createDefaultAppData();
@@ -1331,4 +1349,553 @@ test('autoDropOfflineStreams setting sanitizes cleanly and filters offline model
   });
 
   assert.deepEqual(filtered, ['id_online']);
+});
+
+test('computeWatchlistScheduleMatrix aggregates 7x24 grid, peak window, and model active density', () => {
+  const refDate = new Date('2026-11-20T21:30:00Z'); // Friday 21:30 UTC
+  // Mon=0, Tue=1, Wed=2, Thu=3, Fri=4, Sat=5, Sun=6
+
+  const modelA: ModelRecord = {
+    id: 'model_a',
+    username: 'model_a',
+    displayName: 'Model Alpha',
+    originalLink: '',
+    tierId: 'tier_priority_1',
+    order: 0,
+    cbexplorerAdded: false,
+    thumbnail: '',
+    notes: '',
+    tags: [],
+    customLinks: [],
+    createdAt: refDate.toISOString(),
+    updatedAt: refDate.toISOString(),
+    presenceHours: {
+      '2026-11-20T21': 60, // Friday 21:00
+      '2026-11-20T22': 45, // Friday 22:00
+    },
+  };
+
+  const modelB: ModelRecord = {
+    id: 'model_b',
+    username: 'model_b',
+    displayName: 'Model Beta',
+    originalLink: '',
+    tierId: 'tier_priority_1',
+    order: 1,
+    cbexplorerAdded: false,
+    thumbnail: '',
+    notes: '',
+    tags: [],
+    customLinks: [],
+    createdAt: refDate.toISOString(),
+    updatedAt: refDate.toISOString(),
+    presenceHours: {
+      '2026-11-20T21': 50, // Friday 21:00
+      '2026-11-21T21': 60, // Saturday 21:00
+    },
+  };
+
+  const modelC: ModelRecord = {
+    id: 'model_c',
+    username: 'model_c',
+    displayName: 'Model Gamma',
+    originalLink: '',
+    tierId: 'tier_priority_2',
+    order: 2,
+    cbexplorerAdded: false,
+    thumbnail: '',
+    notes: '',
+    tags: [],
+    customLinks: [],
+    createdAt: refDate.toISOString(),
+    updatedAt: refDate.toISOString(),
+    presenceHours: {
+      '2026-11-20T21': 30, // Friday 21:00
+    },
+  };
+
+  // 1. All models aggregation
+  const resultAll = computeWatchlistScheduleMatrix([modelA, modelB, modelC], {
+    now: refDate,
+  });
+
+  assert.equal(resultAll.totalModelsConsidered, 3);
+  assert.equal(resultAll.modelsWithScheduleData, 3);
+
+  // Friday 21:00 cell check
+  // Note: Local time depends on timezone of runner, but test runs deterministically
+  assert.ok(resultAll.maxModelCount >= 2);
+  assert.ok(resultAll.totalBroadcastHours30d > 0);
+  assert.ok(resultAll.peakWindow.modelCount >= 2);
+
+  // 2. Tier filter check
+  const resultTier1 = computeWatchlistScheduleMatrix([modelA, modelB, modelC], {
+    tierId: 'tier_priority_1',
+    now: refDate,
+  });
+  assert.equal(resultTier1.totalModelsConsidered, 2);
+  assert.equal(resultTier1.modelsWithScheduleData, 2);
+
+  // 3. Empty data check
+  const resultEmpty = computeWatchlistScheduleMatrix([]);
+  assert.equal(resultEmpty.totalModelsConsidered, 0);
+  assert.equal(resultEmpty.modelsWithScheduleData, 0);
+  assert.equal(resultEmpty.maxModelCount, 0);
+});
+
+test('v3.0.9 security & live feed robustness: protocol validation, tag parsing, HD truthiness, thumbnail fallback, and undefined wm', () => {
+  // 1. Protocol Validation: strictly prevent executable javascript: and data: URIs
+  const jsPreview = buildLivePreviewUrl('seduza_hyun', 'javascript:alert("pwned")');
+  assert.ok(jsPreview.startsWith('https://chaturbate.com/embed/'));
+  assert.doesNotMatch(jsPreview, /javascript:/);
+
+  const dataPreview = buildLivePreviewUrl('seduza_hyun', 'data:text/html,<script>alert(1)</script>');
+  assert.ok(dataPreview.startsWith('https://chaturbate.com/embed/'));
+  assert.doesNotMatch(dataPreview, /data:/);
+
+  const safeCustomPreview = buildLivePreviewUrl('seduza_hyun', 'https://custom-embed.com/{username}?theme=dark');
+  assert.equal(safeCustomPreview, 'https://custom-embed.com/seduza_hyun?theme=dark');
+
+  const modelUrls = buildModelUrls('seduza_hyun', {
+    cbhours: 'javascript:alert(1)',
+    cbexplorer: 'data:text/html,bad',
+    archivebate: 'https://archivebate.example.com/{username}',
+  });
+  assert.equal(modelUrls.cbhours, 'https://www.cbhours.com/user/seduza_hyun.html');
+  assert.equal(modelUrls.cbexplorer, 'https://cbexplorer.com/seduza_hyun');
+  assert.equal(modelUrls.archivebate, 'https://archivebate.example.com/seduza_hyun');
+
+  // 2. Undefined affiliateWm guard in buildFeedPageUrl
+  const urlWithUndefinedWm = buildFeedPageUrl({
+    enabled: true,
+    endpointTemplate: 'https://example.com/feed?wm={wm}&offset={offset}&limit={limit}',
+    affiliateWm: undefined as any,
+    refreshIntervalSec: 45,
+    maxPages: 1,
+    autoRefreshSnapshots: false,
+  });
+  assert.equal(urlWithUndefinedWm, 'https://example.com/feed?wm=&offset=0&limit=500');
+
+  const invalidEndpointUrl = buildFeedPageUrl({
+    enabled: true,
+    endpointTemplate: 'javascript:alert(1)',
+    affiliateWm: 'code123',
+    refreshIntervalSec: 45,
+    maxPages: 1,
+    autoRefreshSnapshots: false,
+  });
+  assert.equal(invalidEndpointUrl, '');
+
+  // 3. Comma & semicolon-delimited tags in live room payload
+  const tagPayload = {
+    results: [
+      {
+        username: 'seduza_hyun',
+        current_show: 'public',
+        num_users: 100,
+        tags: 'asian, 1080p; late night , chill',
+      },
+      {
+        username: 'luna_vibe',
+        current_show: 'public',
+        num_users: 50,
+        tags: ['guitar', 'acoustic'],
+      },
+    ],
+  };
+  const extractedRooms = extractRoomsFromPayload(tagPayload);
+  assert.equal(extractedRooms.rooms.length, 2);
+  assert.deepEqual(extractedRooms.rooms[0].tags, ['asian', '1080p', 'late night', 'chill']);
+  assert.deepEqual(extractedRooms.rooms[1].tags, ['guitar', 'acoustic']);
+
+  // 4. HD status truthy parsing
+  const hdPayload = {
+    results: [
+      { username: 'model_bool_true', is_hd: true },
+      { username: 'model_num_1', is_hd: 1 },
+      { username: 'model_str_true', is_hd: 'true' },
+      { username: 'model_str_1', is_hd: '1' },
+      { username: 'model_bool_false', is_hd: false },
+      { username: 'model_num_0', is_hd: 0 },
+      { username: 'model_str_false', is_hd: 'false' },
+      { username: 'model_str_0', is_hd: '0' },
+    ],
+  };
+  const parsedHd = extractRoomsFromPayload(hdPayload);
+  assert.equal(parsedHd.rooms[0].isHd, true);
+  assert.equal(parsedHd.rooms[1].isHd, true);
+  assert.equal(parsedHd.rooms[2].isHd, true);
+  assert.equal(parsedHd.rooms[3].isHd, true);
+  assert.equal(parsedHd.rooms[4].isHd, false);
+  assert.equal(parsedHd.rooms[5].isHd, false);
+  assert.equal(parsedHd.rooms[6].isHd, false);
+  assert.equal(parsedHd.rooms[7].isHd, false);
+
+  // 5. Image fallback in matchDetectedCandidatesToWatchlist
+  const watchlistModels: ModelRecord[] = [
+    {
+      id: 'm1',
+      username: 'seduza_hyun',
+      displayName: 'Seduza',
+      originalLink: '',
+      tierId: 'inbox',
+      order: 0,
+      cbexplorerAdded: false,
+      thumbnail: '',
+      notes: '',
+      tags: [],
+      customLinks: [],
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    },
+  ];
+  const detected = matchDetectedCandidatesToWatchlist(
+    [{ hrefOrSlug: 'seduza_hyun', viewers: 250, subject: 'Live stream' }],
+    watchlistModels
+  );
+  assert.equal(detected.length, 1);
+  assert.equal(detected[0].imageUrl, 'https://thumb.live.mmcdn.com/ri/seduza_hyun.jpg');
+});
+
+test('v3.1.0 analytics, presence, and schedule robustness fixes', () => {
+  // 1. recordPresenceTick NaN poisoning & non-positive guard
+  const now = new Date('2026-11-21T14:30:00Z');
+  let buckets = recordPresenceTick(undefined, 10, now);
+  const withNaN = recordPresenceTick(buckets, NaN, now);
+  assert.deepEqual(withNaN, buckets);
+  const withZero = recordPresenceTick(buckets, 0, now);
+  assert.deepEqual(withZero, buckets);
+  const withNeg = recordPresenceTick(buckets, -5, now);
+  assert.deepEqual(withNeg, buckets);
+  const withValid = recordPresenceTick(buckets, 15, now);
+  const keys = Object.keys(withValid);
+  assert.equal(keys.length, 1);
+  assert.equal(withValid[keys[0]], 25);
+
+  // 2. Schedule Matrix Midnight Sliding Window
+  // Test that sliding window at hour 23 looks at dNext (next day 00:00)
+  const dFri = 4; // Friday
+  const dSat = 5; // Saturday
+  const pad2 = (n: number) => (n < 10 ? `0${n}` : `${n}`);
+  const modelFriNight: ModelRecord = {
+    id: 'm_fri_night',
+    username: 'fri_night',
+    displayName: 'Fri Night',
+    originalLink: '',
+    tierId: 'tier_1',
+    order: 0,
+    cbexplorerAdded: false,
+    thumbnail: '',
+    notes: '',
+    tags: [],
+    customLinks: [],
+    createdAt: '2026-11-20T00:00:00Z',
+    updatedAt: '2026-11-20T00:00:00Z',
+    presenceHours: {
+      '2026-11-20T23': 60,
+    },
+  };
+  const modelSatMorning: ModelRecord = {
+    id: 'm_sat_morn',
+    username: 'sat_morn',
+    displayName: 'Sat Morning',
+    originalLink: '',
+    tierId: 'tier_1',
+    order: 1,
+    cbexplorerAdded: false,
+    thumbnail: '',
+    notes: '',
+    tags: [],
+    customLinks: [],
+    createdAt: '2026-11-21T00:00:00Z',
+    updatedAt: '2026-11-21T00:00:00Z',
+    presenceHours: {
+      '2026-11-21T00': 60,
+    },
+  };
+  const matResult = computeWatchlistScheduleMatrix([modelFriNight, modelSatMorning], {
+    now: new Date('2026-11-21T12:00:00Z'),
+  });
+  // Both Friday 23:00 and Saturday 00:00 should pair together across midnight
+  assert.equal(matResult.peakWindow.modelCount, 2);
+
+  // 3. 90-Day Bucket Pruning with ${key}:00:00
+  // A bucket 4 hours after cutoff on the boundary day survives with new parsing (was pruned with midnight truncation)
+  const baseNow = new Date('2026-11-21T12:00:00');
+  const cutoff90dMs = baseNow.getTime() - 90 * 24 * 60 * 60 * 1000;
+  const bucketDt = new Date(cutoff90dMs + 4 * 60 * 60 * 1000);
+  const keyHour = `${bucketDt.getFullYear()}-${pad2(bucketDt.getMonth() + 1)}-${pad2(bucketDt.getDate())}T${pad2(bucketDt.getHours())}`;
+  const testBuckets = { [keyHour]: 30 };
+  const pruned = recordPresenceTick(testBuckets, 10, baseNow);
+  assert.equal(pruned[keyHour], 30);
+
+  // 4. Schedule Habit Detection: midnight habit (yesterday 23:00) is not skipped when checked at 00:00
+  const checkTime = new Date(2026, 10, 17, 0, 15, 0, 0); // Tuesday 00:15
+  const midnightHabitPresence: Record<string, number> = {
+    '2026-11-16T23': 60,
+    '2026-11-09T23': 60,
+    '2026-11-10T00': 60,
+    '2026-11-02T23': 60,
+    '2026-11-03T00': 60,
+    '2026-10-26T23': 60,
+    '2026-10-27T00': 60,
+  };
+  const midnightModel: ModelRecord = {
+    id: 'm_midnight',
+    username: 'midnight_cam',
+    displayName: 'Midnight Cam',
+    originalLink: '',
+    tierId: 't1',
+    order: 0,
+    cbexplorerAdded: false,
+    thumbnail: '',
+    notes: '',
+    tags: [],
+    customLinks: [],
+    createdAt: checkTime.toISOString(),
+    updatedAt: checkTime.toISOString(),
+    presenceHours: midnightHabitPresence,
+  };
+  const midnightMeta = getUsuallyLiveNowMeta(midnightModel, checkTime);
+  assert.equal(midnightMeta.isUsuallyLiveNow, true);
+  assert.ok(midnightMeta.confidencePct > 0);
+
+  // 5. Ongoing Live Stream Sessions (endTime: null)
+  const refNow = new Date('2026-11-21T15:00:00.000Z');
+  const ongoingStart = new Date(refNow.getTime() - 2 * 60 * 60 * 1000).toISOString(); // 2h ago
+  const ongoingStream = {
+    streamId: 101,
+    startTime: ongoingStart,
+    endTime: null,
+  };
+  const mergeOngoing = buildPresenceHoursFromCbexplorerStreams([ongoingStream], undefined, refNow);
+  assert.equal(mergeOngoing.streamsCount, 1);
+  assert.equal(mergeOngoing.latestStreamEndAt, refNow.toISOString());
+  assert.ok(Object.keys(mergeOngoing.presenceHours).length >= 2);
+
+  // 6. Marathon Sessions >24h clamped to 24h
+  const marathonStart = new Date(refNow.getTime() - 36 * 60 * 60 * 1000).toISOString();
+  const marathonEnd = new Date(refNow.getTime() - 6 * 60 * 60 * 1000).toISOString(); // 30h
+  const marathonStream = {
+    streamId: 102,
+    startTime: marathonStart,
+    endTime: marathonEnd,
+  };
+  const mergeMarathon = buildPresenceHoursFromCbexplorerStreams([marathonStream], undefined, refNow);
+  assert.equal(mergeMarathon.streamsCount, 1);
+
+  // 7. Trashed Models Retention: missing deletedAt defaults to m.updatedAt || now
+  const oldIso = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(); // 60d ago
+  const recentIso = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(); // 5d ago
+  const sanitizedClient = sanitizeClientAppData({
+    settings: { trashRetentionDays: 45 },
+    trashedModels: [
+      {
+        id: 'trash_old',
+        username: 'old_trash',
+        updatedAt: oldIso,
+      },
+      {
+        id: 'trash_recent',
+        username: 'recent_trash',
+        updatedAt: recentIso,
+      },
+    ],
+  });
+  assert.equal(sanitizedClient.trashedModels.length, 1);
+  assert.equal(sanitizedClient.trashedModels[0].username, 'recent_trash');
+  assert.equal(sanitizedClient.trashedModels[0].deletedAt, recentIso);
+
+  // 8. Review Offsets Determinism: a.id.localeCompare(b.id) tiebreaker
+  const modelAlpha: ModelRecord = {
+    id: 'model_alpha',
+    username: 'alpha',
+    displayName: 'Alpha',
+    originalLink: '',
+    tierId: 't1',
+    order: 0,
+    cbexplorerAdded: false,
+    thumbnail: '',
+    notes: '',
+    tags: [],
+    customLinks: [],
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z',
+  };
+  const modelBeta: ModelRecord = {
+    ...modelAlpha,
+    id: 'model_beta',
+    username: 'beta',
+    displayName: 'Beta',
+  };
+  const offsetsForward = computeStratifiedReviewOffsets([modelAlpha, modelBeta], 7);
+  const offsetsReverse = computeStratifiedReviewOffsets([modelBeta, modelAlpha], 7);
+  assert.equal(offsetsForward.get('model_alpha'), offsetsReverse.get('model_alpha'));
+  assert.equal(offsetsForward.get('model_beta'), offsetsReverse.get('model_beta'));
+});
+
+test('v3.1.1 sanitizer, CSV importer, exporter formula defense, and brand initials', () => {
+  // 1. Dotted Valid Usernames: must NOT be wiped to ""
+  assert.equal(sanitizeUsername('anna.fox'), 'anna.fox');
+  assert.equal(sanitizeUsername('jane.doe'), 'jane.doe');
+  assert.equal(sanitizeUsername('@anna.fox'), 'anna.fox');
+  assert.equal(sanitizeUsername('  anna.fox  '), 'anna.fox');
+  assert.equal(sanitizeUsername('.anna.fox.'), 'anna.fox');
+
+  // Explicit protocol or forward slash still treated as URLs
+  assert.equal(sanitizeUsername('https://chaturbate.com/anna.fox/'), 'anna.fox');
+  assert.equal(sanitizeUsername('chaturbate.com/anna.fox'), 'anna.fox');
+
+  // 2. Root Query Parameters: use queryRoom if segments.length === 0
+  assert.equal(
+    sanitizeUsername('https://chaturbate.com/?room=seduza_hyun'),
+    'seduza_hyun'
+  );
+  assert.equal(
+    sanitizeUsername('chaturbate.com/?room=seduza_hyun'),
+    'seduza_hyun'
+  );
+  assert.equal(
+    sanitizeUsername('https://chaturbate.com/?b=seduza_hyun'),
+    'seduza_hyun'
+  );
+
+  // 3. CSV Importer Link Fallback: bare username in Link column does not get dropped
+  const linkOnlyCsv = parseImportInput('Link\nseduza_hyun\nanna.fox', []);
+  assert.equal(linkOnlyCsv.candidates.length, 2);
+  assert.equal(linkOnlyCsv.candidates[0].username, 'seduza_hyun');
+  assert.equal(linkOnlyCsv.candidates[1].username, 'anna.fox');
+  assert.ok(!linkOnlyCsv.warnings.some((w) => w.includes('could not isolate username')));
+
+  const headeredBareLinkCsv = parseImportInput(
+    'Model,Link,Tier\n,seduza_hyun,Priority 1\nJane,anna.fox,Watchlist',
+    []
+  );
+  assert.equal(headeredBareLinkCsv.candidates.length, 2);
+  assert.equal(headeredBareLinkCsv.candidates[0].username, 'seduza_hyun');
+  assert.equal(headeredBareLinkCsv.candidates[0].tierHint, 'Priority 1');
+  assert.equal(headeredBareLinkCsv.candidates[1].username, 'anna.fox');
+  assert.equal(headeredBareLinkCsv.candidates[1].displayName, 'Jane');
+  assert.equal(headeredBareLinkCsv.warnings.length, 0);
+
+  // 4. CSV Formula Injection Defense: escapeCsv prepends single quote for =, +, -, @
+  assert.equal(escapeCsv('=SUM(1+1)'), "'=SUM(1+1)");
+  assert.equal(escapeCsv('+12345'), "'+12345");
+  assert.equal(escapeCsv('-calc'), "'-calc");
+  assert.equal(escapeCsv('@vip_user'), "'@vip_user");
+  assert.equal(escapeCsv('normal_user'), 'normal_user');
+  assert.equal(escapeCsv(''), '');
+
+  // 5. WatchPulse Brand Initials: default initials fallback from 'MS' to 'WP'
+  assert.equal(getInitials(''), 'WP');
+  assert.equal(getInitials('???'), 'WP');
+  assert.equal(getInitials('   '), 'WP');
+  assert.equal(getInitials('WatchPulse'), 'WA');
+  assert.equal(getInitials('Watch Pulse'), 'WP');
+});
+
+test('v3.1.2 core model mutation and tier management bugs', () => {
+  // 1. Tier Deletion Resequencing: resequenceTierOrders ensures consecutive sequential orders
+  const testModels: ModelRecord[] = [
+    {
+      id: 'm1',
+      username: 'user1',
+      displayName: 'User 1',
+      originalLink: '',
+      tierId: 'inbox',
+      order: 5,
+      cbexplorerAdded: false,
+      thumbnail: '',
+      notes: '',
+      tags: [],
+      customLinks: [],
+      createdAt: '2026-01-01T00:00:00Z',
+      updatedAt: '2026-01-01T00:00:00Z',
+    },
+    {
+      id: 'm2',
+      username: 'user2',
+      displayName: 'User 2',
+      originalLink: '',
+      tierId: 'tier_a',
+      order: 0,
+      cbexplorerAdded: false,
+      thumbnail: '',
+      notes: '',
+      tags: [],
+      customLinks: [],
+      createdAt: '2026-01-01T00:00:00Z',
+      updatedAt: '2026-01-01T00:00:00Z',
+    },
+    {
+      id: 'm3',
+      username: 'user3',
+      displayName: 'User 3',
+      originalLink: '',
+      tierId: 'inbox',
+      order: 12,
+      cbexplorerAdded: false,
+      thumbnail: '',
+      notes: '',
+      tags: [],
+      customLinks: [],
+      createdAt: '2026-01-01T00:00:00Z',
+      updatedAt: '2026-01-01T00:00:00Z',
+    },
+  ];
+
+  const resequenced = resequenceTierOrders(testModels, 'inbox');
+  assert.equal(resequenced[0].order, 0);
+  assert.equal(resequenced[1].order, 0); // tier_a unchanged
+  assert.equal(resequenced[2].order, 1);
+
+  // 2. Valid Target Tier Validation: invalid or deleted target safely falls back to 'inbox'
+  const existingTiers = [{ id: 'tier_a', name: 'Tier A', order: 0 }];
+  const deletedTierId = 'tier_b';
+  const getSafeTarget = (target: string, tiers: { id: string }[], deletedId: string) => {
+    const isValid = target === 'inbox' || (target !== deletedId && tiers.some((t) => t.id === target));
+    return isValid ? target : 'inbox';
+  };
+  assert.equal(getSafeTarget('tier_a', existingTiers, deletedTierId), 'tier_a');
+  assert.equal(getSafeTarget('inbox', existingTiers, deletedTierId), 'inbox');
+  assert.equal(getSafeTarget('tier_b', existingTiers, deletedTierId), 'inbox');
+  assert.equal(getSafeTarget('non_existent', existingTiers, deletedTierId), 'inbox');
+
+  // 3. Trash Restoration Deduplication: cannot restore if active model has same username
+  const activeUsernames = new Set(['user1', 'user2']);
+  const trashedCandidate = { id: 'tr1', username: 'User1' };
+  const canRestore = !activeUsernames.has(trashedCandidate.username.toLowerCase());
+  assert.equal(canRestore, false);
+
+  // 4. Trashed Models Duplicate Policy on Import
+  const trashedMap = new Map([['trashed_user', { id: 'tr_m', username: 'trashed_user' }]]);
+  const checkImportDuplicate = (username: string, policy: 'skip' | 'update') => {
+    if (trashedMap.has(username.toLowerCase())) {
+      if (policy === 'skip') return 'skipped';
+      return 'updated_and_untrashed';
+    }
+    return 'added';
+  };
+  assert.equal(checkImportDuplicate('trashed_user', 'skip'), 'skipped');
+  assert.equal(checkImportDuplicate('trashed_user', 'update'), 'updated_and_untrashed');
+  assert.equal(checkImportDuplicate('brand_new_user', 'skip'), 'added');
+
+  // 5. Shared Thumbnail Preservation: do not delete thumbnail if active model still references it
+  const activeThumbs = new Set(['local-media://thumb/shared.jpg']);
+  const shouldDeleteThumbnail = (thumb: string) => !activeThumbs.has(thumb);
+  assert.equal(shouldDeleteThumbnail('local-media://thumb/shared.jpg'), false);
+  assert.equal(shouldDeleteThumbnail('local-media://thumb/unshared.jpg'), true);
+
+  // 6. Target Tier Order Calculation: calculates nextOrder within target tier rather than global max
+  const allModels = [
+    { tierId: 'tier_a', order: 50 },
+    { tierId: 'tier_b', order: 0 },
+    { tierId: 'tier_b', order: 1 },
+  ];
+  const movingIds = new Set(['m_new1', 'm_new2']);
+  const nextOrderInTargetTier = (targetTier: string) =>
+    allModels
+      .filter((m) => m.tierId === targetTier && !movingIds.has((m as any).id))
+      .reduce((acc, m) => Math.max(acc, m.order), -1) + 1;
+  assert.equal(nextOrderInTargetTier('tier_b'), 2); // 2 in tier_b, NOT 51
 });

@@ -32,6 +32,16 @@ export const PipWindowView: React.FC<PipWindowViewProps> = ({
   const [isHovered, setIsHovered] = useState(false);
   const hideTimerRef = useRef<number | null>(null);
 
+  // Clean up hide timer on unmount to prevent leaks
+  useEffect(() => {
+    return () => {
+      if (hideTimerRef.current !== null) {
+        window.clearTimeout(hideTimerRef.current);
+        hideTimerRef.current = null;
+      }
+    };
+  }, []);
+
   // Smoothly switch model stream in-place when user picks another model without window reloading
   useEffect(() => {
     return desktopBridge.onPipNavigate((params) => {
@@ -107,16 +117,16 @@ export const PipWindowView: React.FC<PipWindowViewProps> = ({
         <div
           style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
           onDoubleClick={handleReturnToStudio}
-          className="h-9 px-3 rounded-2xl bg-black/70 backdrop-blur-xl border border-white/20 shadow-[0_12px_32px_rgba(0,0,0,0.6)] flex items-center justify-between gap-2.5 pointer-events-auto transition-colors"
+          className="h-9 px-2 sm:px-3 rounded-2xl bg-black/70 backdrop-blur-xl border border-white/20 shadow-[0_12px_32px_rgba(0,0,0,0.6)] flex items-center justify-between gap-1.5 sm:gap-2.5 flex-nowrap pointer-events-auto transition-colors"
         >
           {/* Left: Brand + Model Name + Live Dot (Draggable) */}
           <div className="flex items-center gap-2 min-w-0">
             <WatchPulseLogo size="sm" />
             <div className="flex items-center gap-1.5 min-w-0">
-              <span className="text-xs font-semibold text-white tracking-tight truncate max-w-[170px]">
+              <span className="text-xs font-semibold text-white tracking-tight truncate max-w-[80px] sm:max-w-[140px]">
                 {username}
               </span>
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full bg-red-500/25 text-red-300 border border-red-500/40 text-[9px] font-bold uppercase tracking-wider shrink-0">
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-red-500/25 text-red-300 border border-red-500/40 text-[9px] font-bold uppercase tracking-wider shrink-0">
                 <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
                 Live
               </span>
@@ -126,7 +136,7 @@ export const PipWindowView: React.FC<PipWindowViewProps> = ({
           {/* Right: Minimal Essential Controls (Non-Draggable) */}
           <div
             style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-            className="flex items-center gap-0.5 shrink-0"
+            className="flex items-center gap-0.5 shrink-0 flex-nowrap"
           >
             {/* Audio Toggle */}
             <button

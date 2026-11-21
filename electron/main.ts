@@ -14,12 +14,13 @@ import * as crypto from 'node:crypto';
 import * as fsSync from 'node:fs';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { JsonStorageService } from './storage';
 import {
   AppData,
   AppInfo,
   LiveFetchResult,
+  LiveRoomInfo,
   LiveStreamResolveResult,
   OpenFileResult,
   OpenImageResult,
@@ -83,13 +84,37 @@ function getBuildIconPath(): string | undefined {
   return undefined;
 }
 
+function isInsideDir(childPath: string, parentDir: string): boolean {
+  const resolvedParent = path.resolve(parentDir);
+  const resolvedChild = path.resolve(childPath);
+  const relative = path.relative(resolvedParent, resolvedChild);
+  return Boolean(relative && !relative.startsWith('..') && !path.isAbsolute(relative));
+}
+
+function getDistIndexPath(): string {
+  return path.resolve(__dirname, '..', 'dist', 'index.html');
+}
+
 function isAllowedAppNavigation(targetUrl: string): boolean {
   const isDev = process.env.NODE_ENV === 'development';
   if (isDev && targetUrl.startsWith('http://localhost:5173')) {
     return true;
   }
-  if (!isDev && targetUrl.startsWith('file://')) {
-    return true;
+  if (!isDev) {
+    try {
+      const parsed = new URL(targetUrl);
+      if (parsed.protocol === 'file:') {
+        const cleanFileUrl = `${parsed.protocol}//${parsed.host || ''}${parsed.pathname}`;
+        const targetFilePath = path.resolve(fileURLToPath(cleanFileUrl));
+        const allowedDistIndex = getDistIndexPath();
+        if (process.platform === 'win32') {
+          return targetFilePath.toLowerCase() === allowedDistIndex.toLowerCase();
+        }
+        return targetFilePath === allowedDistIndex;
+      }
+    } catch {
+      return false;
+    }
   }
   return false;
 }
@@ -97,6 +122,12 @@ function isAllowedAppNavigation(targetUrl: string): boolean {
 let mainWindow: BrowserWindow | null = null;
 let pipWindow: BrowserWindow | null = null;
 let currentPipUsername: string | null = null;
+let pendingPipNavigate: {
+  username: string;
+  muted: boolean;
+  videoOnly: boolean;
+  embedTemplate?: string;
+} | null = null;
 let storageService: JsonStorageService | null = null;
 
 function broadcastPipState(): void {
@@ -110,6 +141,9 @@ function broadcastPipState(): void {
 }
 
 function openPipWindow(params: PipParams): PipState {
+  if (!params || typeof params !== 'object') {
+    return { isOpen: false, username: null };
+  }
   const isDev = process.env.NODE_ENV === 'development';
   const cleanUsername = String(params.username || '').trim().toLowerCase();
   if (!cleanUsername) {
@@ -125,15 +159,22 @@ function openPipWindow(params: PipParams): PipState {
   });
   const queryString = queryParams.toString();
 
+  const navParams = {
+    username: cleanUsername,
+    muted: Boolean(params.muted),
+    videoOnly: params.videoOnly !== false,
+    embedTemplate: params.embedTemplate,
+  };
+
   if (pipWindow && !pipWindow.isDestroyed()) {
     currentPipUsername = cleanUsername;
     pipWindow.setTitle(`WatchPulse PiP — ${cleanUsername}`);
-    pipWindow.webContents.send('pip:navigate', {
-      username: cleanUsername,
-      muted: Boolean(params.muted),
-      videoOnly: params.videoOnly !== false,
-      embedTemplate: params.embedTemplate,
-    });
+    if (pipWindow.webContents.isLoading()) {
+      pendingPipNavigate = navParams;
+    } else {
+      pipWindow.webContents.send('pip:navigate', navParams);
+      pendingPipNavigate = null;
+    }
     if (pipWindow.isMinimized()) pipWindow.restore();
     pipWindow.show();
     broadcastPipState();
@@ -177,6 +218,7 @@ function openPipWindow(params: PipParams): PipState {
   });
 
   currentPipUsername = cleanUsername;
+  pendingPipNavigate = navParams;
 
   try {
     pipWindow.setAlwaysOnTop(true, 'screen-saver');
@@ -193,11 +235,25 @@ function openPipWindow(params: PipParams): PipState {
     }
   });
 
+  pipWindow.webContents.on('will-navigate', (event, navigationUrl) => {
+    event.preventDefault();
+    if (isSafeExternalUrl(navigationUrl)) {
+      void shell.openExternal(navigationUrl);
+    }
+  });
+
   pipWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (isSafeExternalUrl(url)) {
       void shell.openExternal(url);
     }
     return { action: 'deny' };
+  });
+
+  pipWindow.webContents.on('did-finish-load', () => {
+    if (pendingPipNavigate && pipWindow && !pipWindow.isDestroyed()) {
+      pipWindow.webContents.send('pip:navigate', pendingPipNavigate);
+      pendingPipNavigate = null;
+    }
   });
 
   pipWindow.once('ready-to-show', () => {
@@ -209,6 +265,7 @@ function openPipWindow(params: PipParams): PipState {
   pipWindow.on('closed', () => {
     pipWindow = null;
     currentPipUsername = null;
+    pendingPipNavigate = null;
     broadcastPipState();
   });
 
@@ -235,16 +292,151 @@ function closePipWindow(): boolean {
   return false;
 }
 
-function createWindow(): void {
-  const isDev = process.env.NODE_ENV === 'development';
+interface WindowState {
+  x?: number;
+  y?: number;
+  width: number;
+  height: number;
+  isMaximized?: boolean;
+}
 
-  mainWindow = new BrowserWindow({
+function getWindowStatePath(): string {
+  return path.join(app.getPath('userData'), 'window-state.json');
+}
+
+function loadWindowState(): WindowState {
+  const defaultState: WindowState = {
     width: 1440,
     height: 920,
+    isMaximized: false,
+  };
+  try {
+    const filePath = getWindowStatePath();
+    if (!fsSync.existsSync(filePath)) {
+      return defaultState;
+    }
+    const raw = fsSync.readFileSync(filePath, 'utf8');
+    const data = JSON.parse(raw) as Partial<WindowState>;
+    if (!data || typeof data !== 'object') {
+      return defaultState;
+    }
+
+    const width =
+      typeof data.width === 'number' && Number.isFinite(data.width) && data.width >= 1024
+        ? Math.round(data.width)
+        : 1440;
+    const height =
+      typeof data.height === 'number' && Number.isFinite(data.height) && data.height >= 680
+        ? Math.round(data.height)
+        : 920;
+    let x = typeof data.x === 'number' && Number.isFinite(data.x) ? Math.round(data.x) : undefined;
+    let y = typeof data.y === 'number' && Number.isFinite(data.y) ? Math.round(data.y) : undefined;
+    const isMaximized = Boolean(data.isMaximized);
+
+    // Multi-display safety validation
+    if (x !== undefined && y !== undefined) {
+      const displays = screen.getAllDisplays();
+      const targetDisplay = displays.find((display) => {
+        const area = display.workArea;
+        return (
+          x! + width > area.x + 100 &&
+          x! < area.x + area.width - 100 &&
+          y! + height > area.y + 100 &&
+          y! < area.y + area.height - 100
+        );
+      });
+
+      if (!targetDisplay) {
+        x = undefined;
+        y = undefined;
+      } else {
+        const workArea = targetDisplay.workArea;
+        y = Math.max(workArea.y, Math.min(y, workArea.y + workArea.height - 100));
+      }
+    }
+
+    return {
+      x,
+      y,
+      width,
+      height,
+      isMaximized,
+    };
+  } catch (err) {
+    console.error('[WatchPulse] Failed to load window state:', err);
+    return defaultState;
+  }
+}
+
+let saveWindowStateTimer: NodeJS.Timeout | null = null;
+let lastKnownBounds = {
+  x: undefined as number | undefined,
+  y: undefined as number | undefined,
+  width: 1440,
+  height: 920,
+};
+
+function saveWindowState(immediate = false): void {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+
+  const isMaximized = mainWindow.isMaximized();
+  if (!isMaximized && !mainWindow.isMinimized()) {
+    const bounds = mainWindow.getBounds();
+    lastKnownBounds = {
+      x: bounds.x,
+      y: bounds.y,
+      width: bounds.width,
+      height: bounds.height,
+    };
+  }
+
+  const stateToSave: WindowState = {
+    ...lastKnownBounds,
+    isMaximized,
+  };
+
+  const doWrite = () => {
+    try {
+      const filePath = getWindowStatePath();
+      fsSync.writeFileSync(filePath, JSON.stringify(stateToSave, null, 2), 'utf8');
+    } catch (err) {
+      console.error('[WatchPulse] Failed to save window state:', err);
+    }
+  };
+
+  if (immediate) {
+    if (saveWindowStateTimer) {
+      clearTimeout(saveWindowStateTimer);
+      saveWindowStateTimer = null;
+    }
+    doWrite();
+  } else {
+    if (saveWindowStateTimer) clearTimeout(saveWindowStateTimer);
+    saveWindowStateTimer = setTimeout(doWrite, 500);
+  }
+}
+
+function createWindow(): void {
+  const isDev = process.env.NODE_ENV === 'development';
+  const windowState = loadWindowState();
+  lastKnownBounds = {
+    x: windowState.x,
+    y: windowState.y,
+    width: windowState.width,
+    height: windowState.height,
+  };
+
+  mainWindow = new BrowserWindow({
+    width: windowState.width,
+    height: windowState.height,
+    ...(windowState.x !== undefined && windowState.y !== undefined
+      ? { x: windowState.x, y: windowState.y }
+      : {}),
     minWidth: 1024,
     minHeight: 680,
     title: 'WatchPulse',
     backgroundColor: '#090B10',
+    frame: false,
     show: false,
     icon: getBuildIconPath(),
     autoHideMenuBar: true,
@@ -285,7 +477,32 @@ function createWindow(): void {
   }
 
   mainWindow.once('ready-to-show', () => {
+    if (windowState.isMaximized) {
+      mainWindow?.maximize();
+    }
     mainWindow?.show();
+  });
+
+  mainWindow.on('resize', () => {
+    saveWindowState(false);
+  });
+
+  mainWindow.on('move', () => {
+    saveWindowState(false);
+  });
+
+  mainWindow.on('close', () => {
+    saveWindowState(true);
+  });
+
+  mainWindow.on('maximize', () => {
+    mainWindow?.webContents.send('window:maximize-change', true);
+    saveWindowState(false);
+  });
+
+  mainWindow.on('unmaximize', () => {
+    mainWindow?.webContents.send('window:maximize-change', false);
+    saveWindowState(false);
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -322,11 +539,24 @@ function registerMediaProtocol(): void {
 
       if (url.hostname === 'thumb') {
         const fileName = path.basename(decodeURIComponent(url.pathname));
+        if (!fileName || fileName === '.' || fileName === '..') {
+          return new Response('Forbidden', { status: 403 });
+        }
         const thumbsDir = getThumbnailsDir();
-        targetPath = path.join(thumbsDir, fileName);
+        targetPath = path.resolve(thumbsDir, fileName);
+        if (!isInsideDir(targetPath, thumbsDir)) {
+          return new Response('Forbidden', { status: 403 });
+        }
       } else if (url.hostname === 'local') {
         const rawPath = url.searchParams.get('path') || '';
+        if (!rawPath) {
+          return new Response('Bad Request', { status: 400 });
+        }
         targetPath = path.resolve(rawPath);
+        const userDataDir = app.getPath('userData');
+        if (!isInsideDir(targetPath, userDataDir)) {
+          return new Response('Forbidden', { status: 403 });
+        }
       } else {
         return new Response('Forbidden', { status: 403 });
       }
@@ -504,6 +734,16 @@ function registerIpcHandlers(): void {
       _event,
       params: { defaultName: string; content: string; extension: 'csv' | 'json' | 'txt' }
     ): Promise<SaveFileResult> => {
+      if (!params || typeof params !== 'object') {
+        return { canceled: true, error: 'Invalid export parameters.' };
+      }
+      const defaultName = typeof params.defaultName === 'string' ? params.defaultName : 'export';
+      const content = typeof params.content === 'string' ? params.content : '';
+      const extension =
+        params.extension === 'csv' || params.extension === 'json' || params.extension === 'txt'
+          ? params.extension
+          : 'txt';
+
       const win = mainWindow ?? BrowserWindow.getFocusedWindow();
       const filterMap = {
         csv: [{ name: 'CSV Spreadsheet', extensions: ['csv'] }],
@@ -513,8 +753,8 @@ function registerIpcHandlers(): void {
 
       const options: Electron.SaveDialogOptions = {
         title: 'Export Models',
-        defaultPath: params.defaultName,
-        filters: filterMap[params.extension] || [{ name: 'All Files', extensions: ['*'] }],
+        defaultPath: defaultName,
+        filters: filterMap[extension] || [{ name: 'All Files', extensions: ['*'] }],
       };
 
       const result = win
@@ -526,7 +766,7 @@ function registerIpcHandlers(): void {
       }
 
       try {
-        await fs.writeFile(result.filePath, params.content, 'utf-8');
+        await fs.writeFile(result.filePath, content, 'utf-8');
         return { canceled: false, filePath: result.filePath };
       } catch (err) {
         return {
@@ -565,8 +805,12 @@ function registerIpcHandlers(): void {
       try {
         const parsed = new URL(mediaUrl);
         const fileName = path.basename(decodeURIComponent(parsed.pathname));
-        if (!fileName) return false;
-        const targetPath = path.join(getThumbnailsDir(), fileName);
+        if (!fileName || fileName === '.' || fileName === '..') return false;
+        const thumbsDir = getThumbnailsDir();
+        const targetPath = path.resolve(thumbsDir, fileName);
+        if (!isInsideDir(targetPath, thumbsDir)) {
+          return false;
+        }
         await fs.unlink(targetPath);
         return true;
       } catch {
@@ -581,11 +825,44 @@ function registerIpcHandlers(): void {
       _event,
       params: string | { url: string; authHeader?: string }
     ): Promise<LiveFetchResult> => {
-      const rawUrl = typeof params === 'string' ? params : params.url;
+      if (!params || (typeof params !== 'string' && typeof params !== 'object')) {
+        return {
+          ok: false,
+          status: 0,
+          latencyMs: 0,
+          contentType: '',
+          error: 'Invalid request parameters.',
+        };
+      }
+      let rawUrl =
+        typeof params === 'string'
+          ? params
+          : typeof params.url === 'string'
+          ? params.url
+          : '';
+      if (!rawUrl) {
+        return {
+          ok: false,
+          status: 0,
+          latencyMs: 0,
+          contentType: '',
+          error: 'Invalid or missing URL parameter.',
+        };
+      }
       const authHeader =
-        typeof params === 'object' && params.authHeader
+        typeof params === 'object' && typeof params.authHeader === 'string'
           ? params.authHeader.trim()
           : '';
+
+      // Auto-rewrite deprecated digitaloceanspaces & legacy cbexplorer URLs to Chaturbate native roomlist
+      if (
+        rawUrl.includes('digitaloceanspaces.com') ||
+        rawUrl.includes('cbexplorer.com/cbexplorer_users_online_v3.json') ||
+        rawUrl.includes('cbexplorer.com/api/cb_users_online_v3.json')
+      ) {
+        rawUrl =
+          'https://chaturbate.com/api/ts/roomlist/room-list/?offset=0&limit=100';
+      }
 
       if (!isSafeExternalUrl(rawUrl)) {
         return {
@@ -604,16 +881,37 @@ function registerIpcHandlers(): void {
       try {
         const headers: Record<string, string> = {
           Accept: 'application/json, text/plain, */*',
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 WatchPulse/3.0',
         };
         if (authHeader) {
           headers.Authorization = authHeader;
         }
 
-        const res = await net.fetch(rawUrl, {
+        let res = await net.fetch(rawUrl, {
           method: 'GET',
           headers,
           signal: controller.signal,
         });
+
+        // Graceful fallback to status bucket format if columnar file fails
+        if (
+          !res.ok &&
+          rawUrl === 'https://cbexplorer.com/cbexplorer_users_online_v3.json'
+        ) {
+          try {
+            res = await net.fetch(
+              'https://cbexplorer.com/api/cb_users_online_v3.json',
+              {
+                method: 'GET',
+                headers,
+                signal: controller.signal,
+              }
+            );
+          } catch {
+            // keep original response
+          }
+        }
 
         const latencyMs = Date.now() - started;
         const contentType = res.headers.get('content-type') || '';
@@ -665,6 +963,80 @@ function registerIpcHandlers(): void {
   );
 
   ipcMain.handle(
+    'live:checkWatchlistModels',
+    async (_event, usernames: string[]): Promise<Record<string, LiveRoomInfo>> => {
+      const results: Record<string, LiveRoomInfo> = {};
+      if (!Array.isArray(usernames) || usernames.length === 0) return results;
+
+      const cleanUsernames = usernames
+        .map((u) => String(u || '').trim().toLowerCase().replace(/[^a-z0-9._-]/g, ''))
+        .filter(Boolean);
+
+      // Check up to 200 models in fast parallel batches to maintain snappy responsiveness
+      const targetUsernames = cleanUsernames.slice(0, 200);
+
+      const checkOne = async (username: string) => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 6000);
+        try {
+          const embedUrl = `https://chaturbate.com/embed/${encodeURIComponent(username)}/?embed_video_only=1&disable_sound=1&hide_logo=1&bgcolor=black`;
+          const res = await net.fetch(embedUrl, {
+            method: 'GET',
+            headers: {
+              Accept: 'text/html,application/xhtml+xml',
+              'User-Agent':
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 WatchPulse/3.0',
+            },
+            signal: controller.signal,
+          });
+          if (!res.ok) return;
+          const html = await res.text();
+          const match = html.match(/window\.initialRoomDossier\s*=\s*"((?:\\.|[^"\\])*)"/);
+          if (!match?.[1]) return;
+          const rawJsonStr = JSON.parse(`"${match[1]}"`) as string;
+          const dossier = JSON.parse(rawJsonStr) as {
+            room_status?: string;
+            hls_source?: string;
+            num_users?: number;
+            room_title?: string;
+            tags?: string[];
+          };
+          if (
+            dossier.room_status === 'public' ||
+            dossier.room_status === 'private' ||
+            dossier.room_status === 'away' ||
+            Boolean(dossier.hls_source)
+          ) {
+            results[username] = {
+              username,
+              currentShow: (dossier.room_status || 'public').toLowerCase(),
+              numUsers: typeof dossier.num_users === 'number' ? dossier.num_users : 0,
+              roomSubject: dossier.room_title || '',
+              tags: Array.isArray(dossier.tags) ? dossier.tags : [],
+              isHd: false,
+              imageUrl: `https://thumb.live.mmcdn.com/ri/${encodeURIComponent(username)}.jpg`,
+              iframeEmbed: '',
+              lastCheckedAt: new Date().toISOString(),
+            };
+          }
+        } catch {
+          // ignore individual timeout/fetch error
+        } finally {
+          clearTimeout(timer);
+        }
+      };
+
+      const concurrency = 6;
+      for (let i = 0; i < targetUsernames.length; i += concurrency) {
+        const batch = targetUsernames.slice(i, i + concurrency);
+        await Promise.all(batch.map((u) => checkOne(u)));
+      }
+
+      return results;
+    }
+  );
+
+  ipcMain.handle(
     'live:resolveStream',
     async (_event, rawUsername: string): Promise<LiveStreamResolveResult> => {
       const clean = String(rawUsername || '')
@@ -688,7 +1060,7 @@ function registerIpcHandlers(): void {
           return { ok: false, error: `HTTP ${res.status}` };
         }
         const html = await res.text();
-        const match = html.match(/window\.initialRoomDossier\s*=\s*"([^"]+)"/);
+        const match = html.match(/window\.initialRoomDossier\s*=\s*"((?:\\.|[^"\\])*)"/);
         if (!match?.[1]) {
           return { ok: false, error: 'Stream metadata unavailable in embed.' };
         }
@@ -728,6 +1100,9 @@ function registerIpcHandlers(): void {
   );
 
   ipcMain.handle('pip:open', async (_event, params: PipParams): Promise<PipState> => {
+    if (!params || typeof params !== 'object') {
+      return { isOpen: false, username: null };
+    }
     return openPipWindow(params);
   });
 
@@ -736,7 +1111,10 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.handle('pip:toggle', async (_event, params: PipParams): Promise<PipState> => {
-    const clean = String(params?.username || '').trim().toLowerCase();
+    if (!params || typeof params !== 'object') {
+      return { isOpen: false, username: null };
+    }
+    const clean = String(params.username || '').trim().toLowerCase();
     if (pipWindow && !pipWindow.isDestroyed() && currentPipUsername === clean) {
       closePipWindow();
       return { isOpen: false, username: null };
@@ -757,6 +1135,34 @@ function registerIpcHandlers(): void {
       mainWindow.show();
       mainWindow.focus();
     }
+  });
+
+  // Window Controls (iMac Style / Custom Title Bar)
+  ipcMain.handle('window:minimize', async (): Promise<void> => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.minimize();
+    }
+  });
+
+  ipcMain.handle('window:maximize', async (): Promise<boolean> => {
+    if (!mainWindow || mainWindow.isDestroyed()) return false;
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize();
+      return false;
+    } else {
+      mainWindow.maximize();
+      return true;
+    }
+  });
+
+  ipcMain.handle('window:close', async (): Promise<void> => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.close();
+    }
+  });
+
+  ipcMain.handle('window:isMaximized', async (): Promise<boolean> => {
+    return Boolean(mainWindow && !mainWindow.isDestroyed() && mainWindow.isMaximized());
   });
 }
 
@@ -799,6 +1205,10 @@ if (!gotSingleInstanceLock) {
     });
   });
 }
+
+app.on('before-quit', () => {
+  saveWindowState(true);
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

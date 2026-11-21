@@ -9,6 +9,9 @@ import {
   SaveFileResult,
 } from './types';
 
+// Prevent MaxListenersExceededWarning when 16+ streams or listeners are active
+ipcRenderer.setMaxListeners(50);
+
 const electronAPI = {
   loadData: (): Promise<AppData> => ipcRenderer.invoke('store:load'),
   saveData: (data: AppData): Promise<AppData> => ipcRenderer.invoke('store:save', data),
@@ -33,6 +36,8 @@ const electronAPI = {
   getAppInfo: (): Promise<AppInfo> => ipcRenderer.invoke('app:getInfo'),
   fetchLiveJson: (url: string, authHeader?: string): Promise<LiveFetchResult> =>
     ipcRenderer.invoke('live:fetchJson', { url, authHeader }),
+  checkWatchlistModels: (usernames: string[]): Promise<Record<string, unknown>> =>
+    ipcRenderer.invoke('live:checkWatchlistModels', usernames),
   resolveLiveStream: (username: string): Promise<LiveStreamResolveResult> =>
     ipcRenderer.invoke('live:resolveStream', username),
   deleteThumbnail: (mediaUrl: string): Promise<boolean> =>
@@ -61,6 +66,16 @@ const electronAPI = {
     const handler = (_event: Electron.IpcRendererEvent, params: unknown) => callback(params);
     ipcRenderer.on('pip:navigate', handler);
     return () => ipcRenderer.removeListener('pip:navigate', handler);
+  },
+  minimizeWindow: (): Promise<void> => ipcRenderer.invoke('window:minimize'),
+  maximizeWindow: (): Promise<boolean> => ipcRenderer.invoke('window:maximize'),
+  closeWindow: (): Promise<void> => ipcRenderer.invoke('window:close'),
+  isWindowMaximized: (): Promise<boolean> => ipcRenderer.invoke('window:isMaximized'),
+  onWindowMaximizeChange: (callback: (isMaximized: boolean) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, isMaximized: boolean) =>
+      callback(isMaximized);
+    ipcRenderer.on('window:maximize-change', handler);
+    return () => ipcRenderer.removeListener('window:maximize-change', handler);
   },
 };
 

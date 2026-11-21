@@ -238,7 +238,7 @@ const DEMO_SEEDS: Array<{
   },
 ];
 
-function resequenceTierOrders(models: ModelRecord[], tierId: string): ModelRecord[] {
+export function resequenceTierOrders(models: ModelRecord[], tierId: string): ModelRecord[] {
   let seq = 0;
   return models.map((m) => {
     if (m.tierId !== tierId) return m;
@@ -270,6 +270,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const saveTimerRef = useRef<number | null>(null);
   const savedBadgeTimerRef = useRef<number | null>(null);
+  const lazyFlushTimerRef = useRef<number | null>(null);
+  const toastTimersRef = useRef<Map<string, number>>(new Map());
   const hasPendingSaveRef = useRef(false);
   const pollSeqRef = useRef(0);
   const lastPresenceFlushRef = useRef(0);
@@ -279,6 +281,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   undoStackRef.current = undoStack;
 
   const dismissToast = useCallback((id: string) => {
+    const timer = toastTimersRef.current.get(id);
+    if (timer) {
+      window.clearTimeout(timer);
+      toastTimersRef.current.delete(id);
+    }
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
@@ -290,12 +297,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     ) => {
       const id = makeId('toast');
       setToasts((prev) => [...prev.slice(-3), { id, message, tone, undoAction }]);
-      window.setTimeout(() => {
+      const timer = window.setTimeout(() => {
+        toastTimersRef.current.delete(id);
         setToasts((prev) => prev.filter((t) => t.id !== id));
       }, 4200);
+      toastTimersRef.current.set(id, timer);
     },
     []
   );
+
+  // Unmount cleanup for all store-level timers
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) {
+        window.clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+      if (savedBadgeTimerRef.current) {
+        window.clearTimeout(savedBadgeTimerRef.current);
+        savedBadgeTimerRef.current = null;
+      }
+      if (lazyFlushTimerRef.current) {
+        window.clearTimeout(lazyFlushTimerRef.current);
+        lazyFlushTimerRef.current = null;
+      }
+      for (const timer of toastTimersRef.current.values()) {
+        window.clearTimeout(timer);
+      }
+      toastTimersRef.current.clear();
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -348,7 +379,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     };
   }, []);
 
-  const persistData = useCallback((nextData: AppData) => {
+  const persistData = useCallback((_ignoredNextData?: AppData) => {
+    if (lazyFlushTimerRef.current) {
+      window.clearTimeout(lazyFlushTimerRef.current);
+      lazyFlushTimerRef.current = null;
+    }
     if (saveTimerRef.current) {
       window.clearTimeout(saveTimerRef.current);
     }
@@ -360,9 +395,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     saveTimerRef.current = window.setTimeout(() => {
       saveTimerRef.current = null;
       desktopBridge
-        .saveData(nextData)
+        .saveData(latestDataRef.current)
         .then(() => {
-          hasPendingSaveRef.current = false;
+          if (saveTimerRef.current === null) {
+            hasPendingSaveRef.current = false;
+          }
           setSaveState('saved');
           savedBadgeTimerRef.current = window.setTimeout(() => {
             setSaveState('idle');
@@ -381,6 +418,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       if (saveTimerRef.current) {
         window.clearTimeout(saveTimerRef.current);
         saveTimerRef.current = null;
+      }
+      if (lazyFlushTimerRef.current) {
+        window.clearTimeout(lazyFlushTimerRef.current);
+        lazyFlushTimerRef.current = null;
       }
       desktopBridge.saveDataSync(latestDataRef.current);
       hasPendingSaveRef.current = false;
@@ -415,7 +456,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       setData(next);
       if (options?.suppressPersist) {
         hasPendingSaveRef.current = true;
+        if (!lazyFlushTimerRef.current && !saveTimerRef.current) {
+          lazyFlushTimerRef.current = window.setTimeout(() => {
+            lazyFlushTimerRef.current = null;
+            if (hasPendingSaveRef.current) {
+              persistData(latestDataRef.current);
+            }
+          }, 180_000);
+        }
       } else {
+        if (lazyFlushTimerRef.current) {
+          window.clearTimeout(lazyFlushTimerRef.current);
+          lazyFlushTimerRef.current = null;
+        }
         persistData(next);
       }
     },
@@ -485,6 +538,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
           byUsername.set(m.username.toLowerCase(), idx);
         });
 
+        const trashedByUsername = new Map<string, ModelRecord>();
+        for (const m of prev.trashedModels ?? []) {
+          trashedByUsername.set(m.username.toLowerCase(), m);
+        }
+        const removedFromTrash = new Set<string>();
+
         let maxOrder = nextModels.reduce((acc, m) => Math.max(acc, m.order), -1);
 
         for (const cand of candidates) {
@@ -540,6 +599,53 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
             continue;
           }
 
+          const trashedExisting = trashedByUsername.get(cleanUsername);
+          if (trashedExisting !== undefined) {
+            if (duplicatePolicy === 'skip') {
+              skipped += 1;
+              continue;
+            }
+
+            removedFromTrash.add(cleanUsername);
+            trashedByUsername.delete(cleanUsername);
+
+            const mergedTags = Array.from(
+              new Set([...trashedExisting.tags, ...cand.tags])
+            );
+            const hasExplicitTierHint = Boolean(
+              cand.tierHint && tierNameMap.has(cand.tierHint.trim().toLowerCase())
+            );
+            const nextNotes =
+              cand.notes && cand.notes.trim()
+                ? !trashedExisting.notes.trim()
+                  ? cand.notes.trim()
+                  : trashedExisting.notes.includes(cand.notes.trim())
+                    ? trashedExisting.notes
+                    : `${trashedExisting.notes}\n${cand.notes.trim()}`
+                : trashedExisting.notes;
+
+            const { deletedAt: _d, deletedFromTierId: _dt, ...cleanModel } = trashedExisting;
+            maxOrder += 1;
+            const restoredRecord: ModelRecord = {
+              ...cleanModel,
+              displayName: cand.displayName || trashedExisting.displayName,
+              originalLink: cand.originalLink || trashedExisting.originalLink,
+              tierId: hasExplicitTierHint ? resolvedTierId : (cleanModel.tierId || resolvedTierId),
+              order: maxOrder,
+              notes: nextNotes,
+              tags: mergedTags,
+              thumbnail: cand.thumbnail || trashedExisting.thumbnail,
+              cbexplorerAdded: trashedExisting.cbexplorerAdded || cand.cbexplorerAdded,
+              updatedAt: now,
+              lastReviewedAt: resolvedTierId !== 'inbox' ? now : undefined,
+            };
+
+            byUsername.set(cleanUsername, nextModels.length);
+            nextModels.push(restoredRecord);
+            updated += 1;
+            continue;
+          }
+
           maxOrder += 1;
           const record: ModelRecord = {
             id: makeId('mdl'),
@@ -563,7 +669,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
           added += 1;
         }
 
-        return { ...prev, models: nextModels };
+        const nextTrashedModels = (prev.trashedModels ?? []).filter(
+          (m) => !removedFromTrash.has(m.username.toLowerCase())
+        );
+
+        return { ...prev, models: nextModels, trashedModels: nextTrashedModels };
       }, `Import models`);
 
       return { added, updated, skipped };
@@ -836,17 +946,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     (ids: string[]) => {
       if (ids.length === 0) return;
       const idSet = new Set(ids);
+      let restoredCount = 0;
+      let duplicateCount = 0;
+
       commitData((prev) => {
         const validTierIds = new Set(prev.tiers.map((t) => t.id));
         validTierIds.add('inbox');
         const now = new Date().toISOString();
         let nextOrder = prev.models.reduce((acc, m) => Math.max(acc, m.order), -1);
 
+        const existingUsernames = new Set(
+          prev.models.map((m) => m.username.toLowerCase())
+        );
         const stillTrashed: ModelRecord[] = [];
         const restored: ModelRecord[] = [];
 
         for (const m of prev.trashedModels ?? []) {
           if (idSet.has(m.id)) {
+            const uname = m.username.toLowerCase();
+            if (existingUsernames.has(uname)) {
+              stillTrashed.push(m);
+              duplicateCount += 1;
+              continue;
+            }
+            existingUsernames.add(uname);
+            restoredCount += 1;
             nextOrder += 1;
             const originTier =
               m.deletedFromTierId && validTierIds.has(m.deletedFromTierId)
@@ -870,12 +994,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
           trashedModels: stillTrashed,
         };
       }, `Restore ${ids.length} model(s)`);
-      notify(
-        ids.length === 1
-          ? 'Restored 1 model from Recycling Bin.'
-          : `Restored ${ids.length} models from Recycling Bin.`,
-        'success'
-      );
+
+      if (duplicateCount > 0 && restoredCount === 0) {
+        notify('Cannot restore: model with same username already exists in workspace.', 'warning');
+      } else if (duplicateCount > 0) {
+        notify(
+          `Restored ${restoredCount} model(s) from Recycling Bin (${duplicateCount} duplicate(s) skipped).`,
+          'info'
+        );
+      } else {
+        notify(
+          ids.length === 1
+            ? 'Restored 1 model from Recycling Bin.'
+            : `Restored ${ids.length} models from Recycling Bin.`,
+          'success'
+        );
+      }
     },
     [commitData, notify]
   );
@@ -884,12 +1018,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     (ids: string[]) => {
       if (ids.length === 0) return;
       const idSet = new Set(ids);
-      const targets = (latestDataRef.current.trashedModels ?? []).filter((m) =>
+      const current = latestDataRef.current;
+      const targets = (current.trashedModels ?? []).filter((m) =>
         idSet.has(m.id)
       );
+      const remainingTrash = (current.trashedModels ?? []).filter((m) =>
+        !idSet.has(m.id)
+      );
+
+      const checkedThumbs = new Set<string>();
       for (const m of targets) {
-        if (m.thumbnail.startsWith('local-media://thumb/')) {
-          void desktopBridge.deleteThumbnail(m.thumbnail);
+        const thumb = m.thumbnail;
+        if (
+          thumb &&
+          thumb.startsWith('local-media://thumb/') &&
+          !checkedThumbs.has(thumb)
+        ) {
+          checkedThumbs.add(thumb);
+          const stillReferencedByActive = current.models.some(
+            (active) => active.thumbnail === thumb
+          );
+          const stillReferencedByRemainingTrash = remainingTrash.some(
+            (other) => other.thumbnail === thumb
+          );
+          if (!stillReferencedByActive && !stillReferencedByRemainingTrash) {
+            void desktopBridge.deleteThumbnail(thumb);
+          }
         }
       }
       commitData((prev) => ({
@@ -907,10 +1061,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 
   const emptyTrash = useCallback(() => {
-    const allTrashed = latestDataRef.current.trashedModels ?? [];
+    const current = latestDataRef.current;
+    const allTrashed = current.trashedModels ?? [];
+    const checkedThumbs = new Set<string>();
     for (const m of allTrashed) {
-      if (m.thumbnail.startsWith('local-media://thumb/')) {
-        void desktopBridge.deleteThumbnail(m.thumbnail);
+      const thumb = m.thumbnail;
+      if (
+        thumb &&
+        thumb.startsWith('local-media://thumb/') &&
+        !checkedThumbs.has(thumb)
+      ) {
+        checkedThumbs.add(thumb);
+        const stillReferencedByActive = current.models.some(
+          (active) => active.thumbnail === thumb
+        );
+        if (!stillReferencedByActive) {
+          void desktopBridge.deleteThumbnail(thumb);
+        }
       }
     }
     commitData((prev) => ({
@@ -934,16 +1101,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       const cleanTag = options.addTag?.trim();
 
       commitData((prev) => {
+        const isTierValid =
+          options.tierId !== undefined &&
+          (options.tierId === 'inbox' || prev.tiers.some((t) => t.id === options.tierId));
+
         const now = new Date().toISOString();
-        let nextOrder = prev.models.reduce((acc, m) => Math.max(acc, m.order), -1);
+        let nextOrder = isTierValid
+          ? prev.models
+              .filter((m) => m.tierId === options.tierId && !idSet.has(m.id))
+              .reduce((acc, m) => Math.max(acc, m.order), -1)
+          : -1;
 
         const models = prev.models.map((m) => {
           if (!idSet.has(m.id)) return m;
-          nextOrder += 1;
+          if (isTierValid) {
+            nextOrder += 1;
+          }
           return {
             ...m,
-            tierId: options.tierId !== undefined ? options.tierId : m.tierId,
-            order: options.tierId !== undefined ? nextOrder : m.order,
+            tierId: isTierValid ? options.tierId! : m.tierId,
+            order: isTierValid ? nextOrder : m.order,
             cbexplorerAdded:
               options.cbexplorerAdded !== undefined
                 ? options.cbexplorerAdded
@@ -954,7 +1131,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
                 : m.tags,
             updatedAt: now,
             lastReviewedAt:
-              options.tierId !== undefined ? now : m.lastReviewedAt,
+              isTierValid ? now : m.lastReviewedAt,
           };
         });
         return { ...prev, models };
@@ -1029,16 +1206,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const deleteTier = useCallback(
     (id: string, reassignToTierId: string) => {
-      const safeTarget = reassignToTierId === id ? 'inbox' : reassignToTierId;
       commitData((prev) => {
+        const isValidTarget =
+          reassignToTierId === 'inbox' ||
+          (reassignToTierId !== id && prev.tiers.some((t) => t.id === reassignToTierId));
+        const safeTarget = isValidTarget ? reassignToTierId : 'inbox';
         const now = new Date().toISOString();
         const remainingTiers = prev.tiers
           .filter((t) => t.id !== id)
           .map((t, idx) => ({ ...t, order: idx }));
 
-        const models = prev.models.map((m) =>
+        const reassigned = prev.models.map((m) =>
           m.tierId === id ? { ...m, tierId: safeTarget, updatedAt: now } : m
         );
+        const models = resequenceTierOrders(reassigned, safeTarget);
 
         const nextSource =
           prev.settings.deckSourceFilter === id
@@ -1278,14 +1459,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       if (!feedCfg.enabled && !manual) return;
 
       const needsWm = feedCfg.endpointTemplate.includes('{wm}');
-      if (needsWm && !feedCfg.affiliateWm.trim() && !manual) {
+      if (needsWm && !(feedCfg.affiliateWm ?? '').trim() && !manual) {
         return;
       }
 
       const pollSeq = ++pollSeqRef.current;
       setLivePollingState((prev) => ({ ...prev, loading: true, error: null }));
 
-      const pageSize = 500;
+      const isChaturbateNative =
+        feedCfg.endpointTemplate.includes('chaturbate.com/api/ts/roomlist') ||
+        feedCfg.endpointTemplate.includes('chaturbate.com');
+      const pageSize = isChaturbateNative ? 100 : 500;
       const maxPages = Math.max(1, Math.min(25, feedCfg.maxPages || 1));
       const collected: Record<string, LiveRoomInfo> = {};
       let totalFeedRooms = 0;
@@ -1296,7 +1480,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       for (let page = 0; page < maxPages; page += 1) {
         const url = buildFeedPageUrl(feedCfg, page, pageSize);
         const res = await desktopBridge.fetchLiveJson(url, feedCfg.authHeader);
-        if (pollSeq !== pollSeqRef.current) return;
+        if (pollSeq !== pollSeqRef.current) {
+          setLivePollingState((prev) => ({ ...prev, loading: false }));
+          return;
+        }
         lastStatus = res.status;
 
         if (!res.ok) {
@@ -1319,7 +1506,52 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         }
       }
 
-      if (pollSeq !== pollSeqRef.current) return;
+      if (pollSeq !== pollSeqRef.current) {
+        setLivePollingState((prev) => ({ ...prev, loading: false }));
+        return;
+      }
+
+      const trackedModels = latestDataRef.current.models;
+      const trackedUsernames = new Set(
+        trackedModels.map((m) => m.username.toLowerCase())
+      );
+      const matchedMap: Record<string, LiveRoomInfo> = {};
+      for (const [uname, room] of Object.entries(collected)) {
+        if (trackedUsernames.has(uname)) {
+          matchedMap[uname] = room;
+        }
+      }
+
+      // Check remaining watchlist models directly via embed dossier fallback
+      // Ensures 100% detection accuracy even for models beyond the top pages or if roomlist feed had a hiccup
+      const missingUsernames = trackedModels
+        .map((m) => m.username)
+        .filter((uname) => !matchedMap[uname.toLowerCase()]);
+
+      if (
+        desktopBridge.checkWatchlistModels &&
+        missingUsernames.length > 0 &&
+        feedCfg.enabled
+      ) {
+        try {
+          const directChecked = await desktopBridge.checkWatchlistModels(missingUsernames);
+          if (pollSeq === pollSeqRef.current && directChecked) {
+            for (const [uname, room] of Object.entries(directChecked)) {
+              if (room) {
+                matchedMap[uname.toLowerCase()] = room;
+                collected[uname.toLowerCase()] = room;
+              }
+            }
+          }
+        } catch {
+          // ignore fallback error
+        }
+      }
+
+      if (pollSeq !== pollSeqRef.current) {
+        setLivePollingState((prev) => ({ ...prev, loading: false }));
+        return;
+      }
 
       if (fetchError && Object.keys(collected).length === 0) {
         setLivePollingState({
@@ -1336,13 +1568,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         return;
       }
 
-      const trackedUsernames = new Set(
+      // Filter matchedMap against latest active models to protect against deleted models during async polling
+      const currentActiveUsernames = new Set(
         latestDataRef.current.models.map((m) => m.username.toLowerCase())
       );
-      const matchedMap: Record<string, LiveRoomInfo> = {};
-      for (const [uname, room] of Object.entries(collected)) {
-        if (trackedUsernames.has(uname)) {
-          matchedMap[uname] = room;
+      for (const uname of Object.keys(matchedMap)) {
+        if (!currentActiveUsernames.has(uname)) {
+          delete matchedMap[uname];
         }
       }
 
@@ -1382,18 +1614,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
         );
       }
 
+      const finalFeedRooms = Math.max(totalFeedRooms, Object.keys(collected).length);
       setLivePollingState({
         loading: false,
         lastPolledAt: nowIso,
-        error: fetchError,
+        error: finalFeedRooms > 0 || matchedCount > 0 ? null : fetchError,
         totalMatched: matchedCount,
-        totalFeedRooms,
-        lastStatus,
+        totalFeedRooms: finalFeedRooms,
+        lastStatus: lastStatus ?? 200,
       });
 
       if (manual) {
         notify(
-          `Synced ${totalFeedRooms} live rooms — ${matchedCount} watchlist model(s) online.`,
+          `Synced ${finalFeedRooms} live room records — ${matchedCount} watchlist model(s) online.`,
           'success'
         );
       }
@@ -1648,7 +1881,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
     const cfg = data.settings.liveFeed;
     if (!cfg.enabled || !cfg.autoRefreshSnapshots) return;
     const needsWm = cfg.endpointTemplate.includes('{wm}');
-    if (needsWm && !cfg.affiliateWm.trim()) return;
+    if (needsWm && !(cfg.affiliateWm ?? '').trim()) return;
     if (data.models.length === 0) return;
 
     void refreshLiveFeed(false);

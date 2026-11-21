@@ -88,7 +88,7 @@ export function computeStratifiedReviewOffsets(
       const anchorB = b.lastReviewedAt || b.updatedAt || b.createdAt;
       const hA = getModelReviewOffsetDays(a.id, anchorA, 1000003);
       const hB = getModelReviewOffsetDays(b.id, anchorB, 1000003);
-      return hA - hB;
+      return hA - hB || a.id.localeCompare(b.id);
     });
 
     sorted.forEach((model, idx) => {

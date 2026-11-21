@@ -3,6 +3,7 @@ import {
   AppInfo,
   LiveFetchResult,
   LiveFeedConfig,
+  LiveRoomInfo,
   LiveStreamResolveResult,
   OpenFileResult,
   OpenImageResult,
@@ -26,11 +27,11 @@ export const DEFAULT_URL_TEMPLATES: UrlTemplates = {
 export const DEFAULT_LIVE_FEED: LiveFeedConfig = {
   enabled: true,
   endpointTemplate:
-    'https://cbexplorer.nyc3.cdn.digitaloceanspaces.com/cbexplorer_users_online_v3.json',
+    'https://chaturbate.com/api/ts/roomlist/room-list/?offset={offset}&limit={limit}',
   affiliateWm: '',
   authHeader: '',
   refreshIntervalSec: 45,
-  maxPages: 5,
+  maxPages: 10,
   autoRefreshSnapshots: true,
 };
 
@@ -264,6 +265,17 @@ export const desktopBridge = {
     }
   },
 
+  async checkWatchlistModels(
+    usernames: string[]
+  ): Promise<Record<string, LiveRoomInfo>> {
+    if (window.electronAPI?.checkWatchlistModels) {
+      return (await window.electronAPI.checkWatchlistModels(
+        usernames
+      )) as Record<string, LiveRoomInfo>;
+    }
+    return {};
+  },
+
   async resolveLiveStream(username: string): Promise<LiveStreamResolveResult> {
     if (window.electronAPI) {
       return window.electronAPI.resolveLiveStream(username);
@@ -325,6 +337,39 @@ export const desktopBridge = {
   onPipNavigate(callback: (params: PipParams) => void): (() => void) {
     if (window.electronAPI?.onPipNavigate) {
       return window.electronAPI.onPipNavigate(callback);
+    }
+    return () => {};
+  },
+
+  async minimizeWindow(): Promise<void> {
+    if (window.electronAPI?.minimizeWindow) {
+      return window.electronAPI.minimizeWindow();
+    }
+  },
+
+  async maximizeWindow(): Promise<boolean> {
+    if (window.electronAPI?.maximizeWindow) {
+      return window.electronAPI.maximizeWindow();
+    }
+    return false;
+  },
+
+  async closeWindow(): Promise<void> {
+    if (window.electronAPI?.closeWindow) {
+      return window.electronAPI.closeWindow();
+    }
+  },
+
+  async isWindowMaximized(): Promise<boolean> {
+    if (window.electronAPI?.isWindowMaximized) {
+      return window.electronAPI.isWindowMaximized();
+    }
+    return false;
+  },
+
+  onWindowMaximizeChange(callback: (isMaximized: boolean) => void): (() => void) {
+    if (window.electronAPI?.onWindowMaximizeChange) {
+      return window.electronAPI.onWindowMaximizeChange(callback);
     }
     return () => {};
   },

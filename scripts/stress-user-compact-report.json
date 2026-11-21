@@ -1,0 +1,152 @@
+[
+  {
+    "category": "Schedule Matrix Responsive Layout",
+    "title": "7x24 Grid and Inspector Drawer Collide at 1024px Screen Width",
+    "severity": "Critical",
+    "details": "At 1024px width, Tailwind 'lg:flex-row' kicks in. The modal container is 976px wide. The inspector drawer claims 380px (shrink-0), leaving only 596px for the grid. The grid has 'min-w-[720px]' (+ 64px padding = 784px), resulting in a 188px overflow and forcing horizontal scrolling across all 24 hours."
+  },
+  {
+    "category": "Schedule Matrix Viewport Squashing",
+    "title": "Vertical Space Squashed on 768px Display (706px Modal Height)",
+    "severity": "High",
+    "details": "On a 768px vertical display (1024x768 / 1366x768), 92vh yields 706px. The modal top header, KPI ribbon, wrapped filter bar, and footer consume 288px, leaving only ~418px. The inspector model list is cramped into <300px, cutting off visible models and creating double scrollbars."
+  },
+  {
+    "category": "ModalShell Backdrop Clipping",
+    "title": "Modal Content Clips Above and Below Screen at 480px Viewport Height",
+    "severity": "High",
+    "details": "ModalShell uses 'fixed inset-0 flex items-center justify-center p-4' without 'overflow-y-auto' on the backdrop. When child modals like SettingsModal or TierManagerModal enforce 'min-h-[580px]' (total 612px with padding), they exceed 480px viewport height. The modal header (with title & X button) and modal footer (with action buttons) are clipped offscreen and cannot be scrolled to."
+  },
+  {
+    "category": "RapidSorter Viewport Layout",
+    "title": "Center Deck Card Horizontally Squashed at 1024px with Quick-Edit Open",
+    "severity": "Medium",
+    "details": "Opening Quick-Edit ('showInspector') mounts an aside of 320px ('w-80 shrink-0'). On 1024px width, available width drops to 704px. The triage card requires 720px (max-w-2xl 672px + 48px padding), causing horizontal cramping and squashing card elements."
+  },
+  {
+    "category": "PiP Floating Window Header Collision",
+    "title": "PiP Header Username and Action Buttons Collide at minWidth 320px",
+    "severity": "Medium",
+    "details": "BrowserWindow minWidth is 320px. The floating control bar has 296px width. Left brand/live elements (72px) plus 5 right control buttons (148px) leave only ~76px for username. The username span has 'max-w-[170px]' without dynamic flex-shrink constraints, causing it to push against and overlap the controls."
+  },
+  {
+    "category": "TopNav Responsive Limits",
+    "title": "TopNav Clips and Overflows at Viewports Below 768px Width (e.g. 640x480)",
+    "severity": "Medium",
+    "details": "TopNav uses 'h-14 flex items-center justify-between gap-3' without responsive collapsing or hamburger menu. Left brand + nav items (470px) plus right theme switcher + actions + iMac window controls (260px) require ~762px minimum width. Below 768px (e.g. 640x480 or high-DPI scaling), items collide, clip, or push offscreen."
+  },
+  {
+    "category": "Live Monitor Card Overlay Collision",
+    "title": "Status Badges (Top-Left) and Action Buttons (Top-Right) Directly Overlap on Grid Cards",
+    "severity": "Critical",
+    "details": "On Live Monitor grid cards, the top-left badges container ('absolute top-2 left-2 flex items-center gap-1.5 pointer-events-none') renders status ('PUBLIC'), schedule confidence ('EXPECTED (< 1 HR) · 85%'), and viewer counts (~272px). The top-right actions container ('absolute top-2 right-2 flex items-center gap-1') renders 'Stage', 'Wall', 'PiP', and 'Hide' buttons (~168px). Total required width is ~456px. In 3, 4, or 5-column grid modes (card widths 165px–260px), action buttons render directly over status badges, obscuring viewers and schedule text."
+  },
+  {
+    "category": "RapidSorter Long Username Overflow",
+    "title": "100-Character Username in RapidSorter Card Does Not Truncate in Child Span",
+    "severity": "High",
+    "details": "In RapidSorterView.tsx (line 778), the parent div has 'truncate' but the child '<span>@{activeModel.username}</span>' has no width or truncation constraints. Similarly, line 818 'Up next: <span className=\"text-slate-300 font-mono\">@{nextModel.username}</span>' lacks 'truncate' or 'break-all', causing long 100-character handles to break outside card borders."
+  },
+  {
+    "category": "ModalShell Header Title Truncation Failure",
+    "title": "100-Character Model Name in ModalShell Pushes Close \"X\" Button Offscreen",
+    "severity": "High",
+    "details": "In ModalShell.tsx (lines 53-68), the title container has no 'min-w-0' and '<h2 className=\"text-base font-semibold text-white\">{title}</h2>' has no 'truncate' or 'break-words'. When editing a model with a 100-character name ('Edit Model — aaaaa...'), the title forces the header to expand horizontally, pushing the Close 'X' button off the screen."
+  },
+  {
+    "category": "ModelAvatar Initials Generation",
+    "title": "International/Unicode/Symbol Usernames Fall Back to Stale \"MS\" Initials",
+    "severity": "Medium",
+    "details": "In src/utils/media.ts:31, getInitials() strips all non-ASCII characters ('replace(/[^a-zA-Z0-9_ ]/g, \" \")'). For international models (Japanese, Cyrillic, emoji, or zero-width handles), the cleaned string is empty and returns hardcoded 'MS' (legacy ModelSort acronym instead of WatchPulse 'WP')."
+  },
+  {
+    "category": "RapidSorter Unbounded Content Expansion",
+    "title": "30+ Tags or Multi-Line Bios Push Action Buttons Below Viewport Fold on 768px Screens",
+    "severity": "High",
+    "details": "In RapidSorterView.tsx (lines 843-863), tags are rendered in a boundless 'flex flex-wrap gap-1.5' container, and notes are rendered in '<p className=\"... whitespace-pre-wrap\">{activeModel.notes}</p>' without 'max-h' or overflow scrolling. When models have 30+ tags or multi-paragraph bios, the triage card expands vertically by hundreds of pixels, pushing the Tier Action Deck buttons completely out of view on 768px displays."
+  },
+  {
+    "category": "Light Mode Toast Contrast Failure",
+    "title": "Toast Notifications Unreadable in Light Mode (Contrast Ratio: 1.02:1)",
+    "severity": "Critical",
+    "details": "In src/App.tsx:251-265, toast cards use dark tones 'bg-[#101C18]', 'bg-[#1B160F]', 'bg-[#1D1014]', and 'bg-[#121622]'. In src/index.css:390, '[data-theme=\"light\"] .text-slate-100' forces text to near-black '#0F172A !important'. Because toast backgrounds are not overridden in Light Mode, dark text is rendered directly on pitch-black toast backgrounds with a contrast ratio of 1.02:1 (failing WCAG AA 4.5:1)."
+  },
+  {
+    "category": "Schedule Matrix Light Mode Cell Contrast Failure",
+    "title": "Heatmap Low-Density Cells Illegible in Light Mode (Contrast Ratio: 1.61:1)",
+    "severity": "Critical",
+    "details": "In ScheduleMatrixModal.tsx:617, low-density cells use 'bg-indigo-950/60' (near-black indigo background). In index.css:425, '[data-theme=\"light\"] .text-indigo-300' forces text color to '#3730A3 !important' (dark indigo). Dark indigo text on dark indigo background produces an illegible contrast ratio of 1.61:1."
+  },
+  {
+    "category": "DataGridView Input Focus Contrast Failure",
+    "title": "Inline Notes Input Plunges into Darkness on Focus in Light Mode (Contrast Ratio: 1.32:1)",
+    "severity": "High",
+    "details": "In DataGridView.tsx:657, the inline notes input has 'focus:bg-[#0B0E15]' (hardcoded pitch black). In Light Mode, text color is forced to dark slate '#1E293B !important'. When the user clicks into the note field, the background suddenly snaps to pitch black while typing in dark text (contrast ratio 1.32:1)."
+  },
+  {
+    "category": "Schedule Matrix Button Light Mode Contrast",
+    "title": "Inspector \"Watch\" Button Text Turns Near-Black on Indigo in Light Mode (Contrast Ratio: 2.84:1)",
+    "severity": "High",
+    "details": "In ScheduleMatrixModal.tsx:886, the 'Watch' button uses 'bg-indigo-600/80 ... text-white'. In index.css:410-421, the white-text preservation selector only targets exact '.bg-indigo-600'. Because opacity modifier '/80' is used, '[data-theme=\"light\"] .text-white' turns the text to near-black '#0F172A !important', rendering black text on dark indigo."
+  },
+  {
+    "category": "LinkPillGroup Violet Contrast Failure",
+    "title": "ArchiveBate Pill Invisible in Light Mode (Contrast Ratio: 1.85:1)",
+    "severity": "High",
+    "details": "In LinkPillGroup.tsx:68 & 137, ArchiveBate links use 'text-violet-300' (#C4B5FD). Unlike indigo, emerald, sky, and amber, index.css has NO light mode override for 'text-violet-300'. Light pastel lavender text on a white card yields a contrast ratio of only 1.85:1 (WCAG AA requires 4.5:1)."
+  },
+  {
+    "category": "Light Mode Theme Inconsistency",
+    "title": "Missing Light Mode Override for bg-[#10131C] in DataGridView table header (thead)",
+    "severity": "Medium",
+    "details": "In src/index.css:451-464 and 479-494, specific dark hex and alpha classes are overridden with light surfaces. However, bg-[#10131C] in DataGridView table header (thead) was omitted from the override list, remaining pitch black in Light Mode."
+  },
+  {
+    "category": "Light Mode Theme Inconsistency",
+    "title": "Missing Light Mode Override for bg-[#161B28] in RapidSorter dynamic tier buttons",
+    "severity": "Medium",
+    "details": "In src/index.css:451-464 and 479-494, specific dark hex and alpha classes are overridden with light surfaces. However, bg-[#161B28] in RapidSorter dynamic tier buttons was omitted from the override list, remaining pitch black in Light Mode."
+  },
+  {
+    "category": "Light Mode Theme Inconsistency",
+    "title": "Missing Light Mode Override for bg-[#141822] in RapidSorter skip action button",
+    "severity": "Medium",
+    "details": "In src/index.css:451-464 and 479-494, specific dark hex and alpha classes are overridden with light surfaces. However, bg-[#141822] in RapidSorter skip action button was omitted from the override list, remaining pitch black in Light Mode."
+  },
+  {
+    "category": "Light Mode Theme Inconsistency",
+    "title": "Missing Light Mode Override for bg-[#0A0C12] in ExportModal preview pre boxes",
+    "severity": "Medium",
+    "details": "In src/index.css:451-464 and 479-494, specific dark hex and alpha classes are overridden with light surfaces. However, bg-[#0A0C12] in ExportModal preview pre boxes was omitted from the override list, remaining pitch black in Light Mode."
+  },
+  {
+    "category": "Light Mode Theme Inconsistency",
+    "title": "Missing Light Mode Override for bg-[#0B0D14] in ImportModal candidate review lists",
+    "severity": "Medium",
+    "details": "In src/index.css:451-464 and 479-494, specific dark hex and alpha classes are overridden with light surfaces. However, bg-[#0B0D14] in ImportModal candidate review lists was omitted from the override list, remaining pitch black in Light Mode."
+  },
+  {
+    "category": "Light Mode Theme Inconsistency",
+    "title": "Missing Light Mode Override for bg-black/35 in ScheduleMatrixModal compact KPI strip",
+    "severity": "Medium",
+    "details": "In src/index.css:451-464 and 479-494, specific dark hex and alpha classes are overridden with light surfaces. However, bg-black/35 in ScheduleMatrixModal compact KPI strip was omitted from the override list, remaining pitch black in Light Mode."
+  },
+  {
+    "category": "Grey Mode Specular Contrast Inconsistency",
+    "title": "Grey Mode Lacks Component Background Overrides for Hardcoded Dark Hex Surfaces",
+    "severity": "Medium",
+    "details": "In src/index.css:26-44, Grey Mode defines --bg-canvas: #161922 and --bg-surface: #20242F. However, unlike Light Mode, there are zero overrides for hardcoded dark classes ('bg-[#0C0F16]', 'bg-[#0B0E15]', 'bg-[#10131C]'). Because these hex values are darker than the grey canvas (#161922), they appear as stark, mismatched black blotches instead of unified frosted studio glass."
+  },
+  {
+    "category": "Broken Glass Refraction in Light Mode",
+    "title": "Heavy Saturated Aura Glow Orbs Bleed Through Semi-Transparent Light Glass",
+    "severity": "Medium",
+    "details": "FloatingAuraBackground.tsx mounts high-opacity orbs ('from-blue-600/40 via-indigo-600/30 to-violet-700/20' and 'from-violet-600/30 via-fuchsia-600/20'). In Light Mode, cards and headers have semi-transparent backgrounds ('--glass-bg: rgba(255, 255, 255, 0.84)'). As the GPU aura drifts, dense dark purple/azure splotches refract through the frosted glass behind text and inputs, breaking visual clarity."
+  },
+  {
+    "category": "Unresolved CSS Class",
+    "title": "Unresolved \"shadow-elevation\" Class in ModalShell and Kanban Cards",
+    "severity": "Low",
+    "details": "'shadow-elevation' is referenced in src/components/common/ModalShell.tsx:47 and src/components/views/KanbanView.tsx:484. However, neither tailwind.config.js nor src/index.css defines this utility, causing it to fail silently and produce no box-shadow elevation."
+  }
+]

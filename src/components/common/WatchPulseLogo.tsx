@@ -123,7 +123,7 @@ export const WatchPulseLogo: React.FC<WatchPulseLogoProps> = ({
       <div className="leading-tight">
         <div className="text-sm font-semibold tracking-tight text-white flex items-center gap-1.5">
           <span>WatchPulse</span>
-          <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-md bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
             v3.0
           </span>
         </div>

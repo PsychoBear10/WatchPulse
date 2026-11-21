@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
+  CalendarClock,
   CheckSquare,
   ChevronDown,
   ChevronRight,
@@ -65,6 +66,7 @@ interface LiveMonitorViewProps {
   onOpenTierManager: () => void;
   onJumpToResortDue: () => void;
   onOpenImport: () => void;
+  onOpenScheduleMatrix?: () => void;
   returnLabel?: string | null;
   onReturnBack?: () => void;
 }
@@ -124,6 +126,42 @@ function getShowStatusMeta(show?: string): {
   };
 }
 
+const MAX_WALL_STREAMS = 24;
+
+interface HourlySlotCacheEntry {
+  slotKey: string;
+  presenceRef: unknown;
+  meta: UsuallyLiveNowMeta;
+}
+
+const usuallyLiveNowSlotCache = new Map<string, HourlySlotCacheEntry>();
+
+function getCachedUsuallyLiveNowMeta(
+  model: ModelRecord,
+  nowDate: Date,
+  scheduleHourKey: number
+): UsuallyLiveNowMeta {
+  const slotKey = `${nowDate.getFullYear()}-${nowDate.getMonth()}-${nowDate.getDate()}-${scheduleHourKey}`;
+  const cached = usuallyLiveNowSlotCache.get(model.id);
+  if (
+    cached &&
+    cached.slotKey === slotKey &&
+    cached.presenceRef === model.presenceHours
+  ) {
+    return cached.meta;
+  }
+  const meta = getUsuallyLiveNowMeta(model, nowDate);
+  if (usuallyLiveNowSlotCache.size > 5000) {
+    usuallyLiveNowSlotCache.clear();
+  }
+  usuallyLiveNowSlotCache.set(model.id, {
+    slotKey,
+    presenceRef: model.presenceHours,
+    meta,
+  });
+  return meta;
+}
+
 export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
   selectedModelId,
   onSelectModel,
@@ -131,6 +169,7 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
   onOpenTierManager,
   onJumpToResortDue,
   onOpenImport,
+  onOpenScheduleMatrix,
   returnLabel,
   onReturnBack,
 }) => {
@@ -167,7 +206,7 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
   const [gridMenuOpen, setGridMenuOpen] = useState(false);
   const [hoverPreviewEnabled, setHoverPreviewEnabled] = useState(true);
   const [hoveredModelId, setHoveredModelId] = useState<string | null>(null);
-  const [snapshotTick, setSnapshotTick] = useState(() => Date.now());
+  const [snapshotTick, setSnapshotTick] = useState(0);
   const [failedThumbs, setFailedThumbs] = useState<Record<string, string>>({});
 
   const [stageMuted, setStageMuted] = useState(false);
@@ -212,6 +251,7 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
   };
 
   const [wallIds, setWallIds] = useState<string[]>([]);
+  const [pinnedModelIds, setPinnedModelIds] = useState<Set<string>>(new Set());
   const [hiddenWallIds, setHiddenWallIds] = useState<string[]>([]);
   const [wallCols, setWallCols] = useState<'auto' | 2 | 3 | 4>('auto');
   const [wallPublicOnly, setWallPublicOnly] = useState(true);
@@ -234,14 +274,8 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
     }
   }, [layoutMode]);
 
-  // Refresh live JPEG thumbnails gently every 15s while Watchlist Grid is active
-  useEffect(() => {
-    if (layoutMode !== 'grid') return;
-    const id = window.setInterval(() => {
-      setSnapshotTick(Date.now());
-    }, 15000);
-    return () => window.clearInterval(id);
-  }, [layoutMode]);
+  // Thumbnails update naturally on live polling/events or manual refresh;
+  // avoided 15s cache-busting interval to eliminate Chromium RAM bloat.
 
   useEffect(() => {
     setFailedThumbs({});
@@ -298,15 +332,30 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
     ]
   );
 
-  const enrichedModels = useMemo(() => {
+  // Memoize getUsuallyLiveNowMeta calculation using an hourly slot cache
+  // so live feed updates (which run every few seconds) do not re-run heavy presence analysis
+  const usuallyNowMetaMap = useMemo(() => {
     const nowDate = new Date();
+    const map = new Map<string, UsuallyLiveNowMeta>();
+    for (const model of data.models) {
+      map.set(
+        model.id,
+        getCachedUsuallyLiveNowMeta(model, nowDate, scheduleHourKey)
+      );
+    }
+    return map;
+  }, [data.models, scheduleHourKey]);
+
+  const enrichedModels = useMemo(() => {
     return data.models.map((model) => {
       const live = liveRoomsByUsername[model.username.toLowerCase()];
       const review = reviewHelper.getStatus(model);
-      const usuallyNow = getUsuallyLiveNowMeta(model, nowDate);
+      const usuallyNow =
+        usuallyNowMetaMap.get(model.id) ||
+        getCachedUsuallyLiveNowMeta(model, new Date(), scheduleHourKey);
       return { model, live, isDue: review.isDueForReview, usuallyNow };
     });
-  }, [data.models, liveRoomsByUsername, reviewHelper, scheduleHourKey]);
+  }, [data.models, liveRoomsByUsername, reviewHelper, scheduleHourKey, usuallyNowMetaMap]);
 
   const totalLiveCount = useMemo(
     () => enrichedModels.filter((item) => Boolean(item.live)).length,
@@ -561,6 +610,15 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
 
   const togglePin = (modelId: string) => {
     setHiddenWallIds((prev) => prev.filter((id) => id !== modelId));
+    setPinnedModelIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(modelId)) {
+        next.delete(modelId);
+      } else {
+        next.add(modelId);
+      }
+      return next;
+    });
     setWallIds((prev) =>
       prev.includes(modelId)
         ? prev.filter((id) => id !== modelId)
@@ -618,6 +676,17 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
       return;
     }
 
+    if (onlineOnly.length > MAX_WALL_STREAMS) {
+      const capped = onlineOnly.slice(0, MAX_WALL_STREAMS);
+      setWallIds(capped.map((m) => m.id));
+      setLayoutMode('wall');
+      notify(
+        `Loaded top ${MAX_WALL_STREAMS} online model(s) from ${label} into Watch Wall (safety cap of ${MAX_WALL_STREAMS} enforced to protect GPU decoders).`,
+        'info'
+      );
+      return;
+    }
+
     setWallIds(onlineOnly.map((m) => m.id));
     setLayoutMode('wall');
     notify(
@@ -650,6 +719,16 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
       );
       return;
     }
+    if (wallEligibleOnlineModels.length > MAX_WALL_STREAMS) {
+      const capped = wallEligibleOnlineModels.slice(0, MAX_WALL_STREAMS);
+      setWallIds(capped.map((m) => m.id));
+      setLayoutMode('wall');
+      notify(
+        `Added top ${MAX_WALL_STREAMS} active streams to Watch Wall (safety cap of ${MAX_WALL_STREAMS} enforced to protect GPU video decoders).`,
+        'info'
+      );
+      return;
+    }
     setWallIds(wallEligibleOnlineModels.map((m) => m.id));
     setLayoutMode('wall');
     notify(
@@ -661,13 +740,15 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
   const dropOfflineFromWall = () => {
     setWallIds((prev) =>
       prev.filter((id) => {
+        if (pinnedModelIds.has(id)) return true;
         const m = data.models.find((x) => x.id === id);
         return Boolean(m && liveRoomsByUsername[m.username.toLowerCase()]);
       })
     );
   };
 
-  // Auto-drop offline models from Watch Wall when enabled in settings or toolbar
+  // Auto-drop offline models from Watch Wall when enabled in settings or toolbar.
+  // Preserves user-pinned models so models that flicker offline temporarily are restored when back online.
   useEffect(() => {
     if (!data.settings.autoDropOfflineStreams) return;
     if (wallIds.length === 0) return;
@@ -676,6 +757,7 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
 
     setWallIds((prev) => {
       const liveOnly = prev.filter((id) => {
+        if (pinnedModelIds.has(id)) return true;
         const m = data.models.find((x) => x.id === id);
         return Boolean(m && liveRoomsByUsername[m.username.toLowerCase()]);
       });
@@ -686,8 +768,27 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
     data.settings.autoDropOfflineStreams,
     livePollingState.lastPolledAt,
     liveRoomsByUsername,
+    pinnedModelIds,
     wallIds.length,
   ]);
+
+  // Restore user-pinned models to Watch Wall as soon as they come back online
+  useEffect(() => {
+    if (pinnedModelIds.size === 0) return;
+    if (!livePollingState.lastPolledAt && Object.keys(liveRoomsByUsername).length === 0) return;
+
+    setWallIds((prev) => {
+      const toRestore: string[] = [];
+      for (const pinnedId of pinnedModelIds) {
+        if (prev.includes(pinnedId) || hiddenWallIds.includes(pinnedId)) continue;
+        const m = data.models.find((x) => x.id === pinnedId);
+        if (m && liveRoomsByUsername[m.username.toLowerCase()]) {
+          toRestore.push(pinnedId);
+        }
+      }
+      return toRestore.length > 0 ? [...prev, ...toRestore] : prev;
+    });
+  }, [data.models, hiddenWallIds, livePollingState.lastPolledAt, liveRoomsByUsername, pinnedModelIds]);
 
   const handleCardHoverStart = (modelId: string, canPreview: boolean) => {
     if (!hoverPreviewEnabled || !canPreview) return;
@@ -949,7 +1050,7 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
                         <span className="text-[11px] font-semibold text-slate-100 truncate">
                           {group.name}
                         </span>
-                        <span className="px-1.5 py-0.2 rounded-full text-[10px] font-semibold bg-black/40 text-slate-300">
+                        <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-black/40 text-slate-300">
                           {group.items.length}
                         </span>
                         {group.liveCount > 0 && !onlyLive && (
@@ -982,7 +1083,7 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
                           const isSelected =
                             activeModel?.id === model.id &&
                             layoutMode === 'single';
-                          const isPinned = wallIds.includes(model.id);
+                          const isPinned = pinnedModelIds.has(model.id) || wallIds.includes(model.id);
 
                           return (
                             <div
@@ -1021,7 +1122,7 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
                                     {usuallyNow.isUsuallyLiveNow && (
                                       <span
                                         title={usuallyNow.label}
-                                        className={`px-1.5 py-0.2 rounded text-[9px] font-semibold border shrink-0 ${
+                                        className={`px-1.5 py-0.5 rounded text-[9px] font-semibold border shrink-0 ${
                                           usuallyNow.isExpectedSoon
                                             ? 'bg-amber-500/20 text-amber-200 border-amber-400/35'
                                             : 'bg-sky-500/20 text-sky-200 border-sky-400/30'
@@ -1167,6 +1268,18 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
                 Stage
               </button>
             </div>
+
+            {onOpenScheduleMatrix && (
+              <button
+                type="button"
+                onClick={onOpenScheduleMatrix}
+                title="Watchlist Peak Hours Schedule Matrix (Ctrl+M)"
+                className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg liquid-pill text-xs font-medium text-slate-300 hover:text-white transition-all active:scale-[0.98]"
+              >
+                <CalendarClock className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Schedule Matrix</span>
+              </button>
+            )}
 
             {layoutMode === 'single' && activeModel && (
               <div className="flex items-center gap-2 min-w-0 pl-1">
@@ -1624,11 +1737,12 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
                       Boolean(live) &&
                       Boolean(statusMeta?.isPublic);
                     const isOnWall = wallIds.includes(model.id);
+                    const isPinned = pinnedModelIds.has(model.id);
                     const isHidden = hiddenWallSet.has(model.id);
                     const snapshotUrl = live
-                      ? `https://thumb.live.mmcdn.com/ri/${encodeURIComponent(
-                          model.username
-                        )}.jpg?t=${snapshotTick}`
+                      ? (snapshotTick > 0
+                          ? `https://thumb.live.mmcdn.com/ri/${encodeURIComponent(model.username)}.jpg?t=${snapshotTick}`
+                          : `https://thumb.live.mmcdn.com/ri/${encodeURIComponent(model.username)}.jpg`)
                       : model.thumbnail;
 
                     return (
@@ -1694,7 +1808,7 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
                           )}
 
                           {/* Status Badges Top-Left */}
-                          <div className="absolute top-2 left-2 flex items-center gap-1.5 pointer-events-none">
+                          <div className="absolute top-2 left-2 flex flex-wrap items-center gap-1.5 pointer-events-none max-w-[calc(100%-7.5rem)]">
                             {statusMeta ? (
                               <span
                                 className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border backdrop-blur-sm ${statusMeta.badgeClass}`}
@@ -1761,17 +1875,17 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
                                 type="button"
                                 onClick={() => togglePin(model.id)}
                                 title={
-                                  isOnWall
+                                  isOnWall || isPinned
                                     ? 'Remove from Watch Wall selection'
                                     : 'Select for Watch Wall'
                                 }
                                 className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold border backdrop-blur-sm transition-all ${
-                                  isOnWall
+                                  isOnWall || isPinned
                                     ? 'bg-indigo-600 text-white border-indigo-400 opacity-100'
                                     : 'bg-black/70 text-slate-200 border-white/15 hover:bg-indigo-600/80 opacity-0 group-hover:opacity-100 focus:opacity-100'
                                 }`}
                               >
-                                {isOnWall ? (
+                                {isOnWall || isPinned ? (
                                   <CheckSquare className="w-3 h-3" />
                                 ) : (
                                   <Square className="w-3 h-3" />
@@ -1840,7 +1954,7 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
                               onChange={(e) =>
                                 moveModelToTier(model.id, e.target.value)
                               }
-                              className="max-w-[95px] bg-black/50 border border-white/10 rounded px-1.5 py-0.5 text-[10px] text-slate-200 shrink-0 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                              className="max-w-[95px] bg-black/50 border border-white/10 rounded px-1.5 py-0.5 text-[10px] text-slate-200 shrink-0 opacity-0 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400/40 transition-opacity"
                             >
                               <option value="inbox">{data.inbox.name}</option>
                               {sortedTiers.map((t) => (
@@ -1869,6 +1983,22 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
             </>
           ) : layoutMode === 'wall' ? (
             <>
+              {/* Container queries for compact Watch Wall tiles (<220px) */}
+              <style>{`
+                @container (max-width: 220px) {
+                  .watch-wall-tile-select {
+                    max-width: 48px !important;
+                    padding-left: 2px !important;
+                    padding-right: 2px !important;
+                  }
+                  .watch-wall-tile-hide-label {
+                    display: none !important;
+                  }
+                  .watch-wall-tile-viewers {
+                    display: none !important;
+                  }
+                }
+              `}</style>
               {/* Watch Wall Toolbar */}
               <div className="px-4 py-2 border-b border-white/[0.07] bg-[#0B0E15] flex flex-wrap items-center justify-between gap-2 shrink-0">
                 <div className="flex flex-wrap items-center gap-1.5">
@@ -2096,14 +2226,15 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
                     return (
                       <div
                         key={model.id}
+                        style={{ containerType: 'inline-size' }}
                         className={`relative flex flex-col rounded-2xl overflow-hidden liquid-card-3d ${
                           tileLive
                             ? 'border-emerald-500/35'
                             : 'border-white/10 opacity-80'
                         } ${isFixedScrollTile ? 'aspect-video min-h-[240px]' : 'h-full min-h-0'}`}
                       >
-                        <div className="px-3 py-1.5 bg-white/[0.03] backdrop-blur-md border-b border-white/[0.08] flex items-center justify-between gap-2 shrink-0">
-                          <div className="flex items-center gap-1.5 min-w-0">
+                        <div className="px-2 sm:px-3 py-1.5 bg-white/[0.03] backdrop-blur-md border-b border-white/[0.08] flex items-center justify-between gap-1.5 sm:gap-2 shrink-0">
+                          <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 flex-1">
                             <span
                               className="w-2 h-2 rounded-full shrink-0"
                               style={{ backgroundColor: tileColor }}
@@ -2114,15 +2245,19 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
                                 className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0"
                               />
                             ) : (
-                              <span className="px-1 py-0.2 rounded text-[9px] font-semibold bg-slate-700/60 text-slate-300 shrink-0">
+                              <span className="px-1 py-0.5 rounded text-[9px] font-semibold bg-slate-700/60 text-slate-300 shrink-0">
                                 Offline
                               </span>
                             )}
-                            <span className="text-xs font-semibold text-white truncate">
+                            <span className="text-xs font-semibold text-white truncate min-w-0 flex-1">
                               {model.displayName || model.username}
                             </span>
                             {tileLive && tileLive.numUsers > 0 && (
-                              <span className="text-[10px] text-emerald-300/90 shrink-0">
+                              <span
+                                className={`watch-wall-tile-viewers text-[10px] text-emerald-300/90 shrink-0 ${
+                                  wallCols === 4 ? 'hidden sm:inline' : ''
+                                }`}
+                              >
                                 {tileLive.numUsers}
                               </span>
                             )}
@@ -2133,7 +2268,11 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
                               onChange={(e) =>
                                 moveModelToTier(model.id, e.target.value)
                               }
-                              className="max-w-[90px] bg-black/50 border border-white/10 rounded px-1.5 py-0.5 text-[10px] text-slate-200"
+                              className={`watch-wall-tile-select bg-black/50 border border-white/10 rounded px-1 sm:px-1.5 py-0.5 text-[10px] text-slate-200 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400/40 truncate ${
+                                wallCols === 4
+                                  ? 'max-w-[50px] sm:max-w-[65px] md:max-w-[85px]'
+                                  : 'max-w-[60px] sm:max-w-[85px]'
+                              }`}
                             >
                               <option value="inbox">{data.inbox.name}</option>
                               {sortedTiers.map((t) => (
@@ -2149,7 +2288,7 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
                                 setLayoutMode('single');
                               }}
                               title="Focus in Single Stage"
-                              className="p-1 rounded text-slate-400 hover:text-white hover:bg-white/10"
+                              className="p-1 rounded text-slate-400 hover:text-white hover:bg-white/10 shrink-0"
                             >
                               <Maximize2 className="w-3 h-3" />
                             </button>
@@ -2157,10 +2296,16 @@ export const LiveMonitorView: React.FC<LiveMonitorViewProps> = ({
                               type="button"
                               onClick={() => hideFromWall(model)}
                               title="Hide unnecessary model from Watch Wall"
-                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium text-slate-300 hover:text-amber-200 hover:bg-amber-500/20"
+                              className="inline-flex items-center gap-1 p-1 sm:px-1.5 sm:py-0.5 rounded text-[10px] font-medium text-slate-300 hover:text-amber-200 hover:bg-amber-500/20 shrink-0"
                             >
-                              <EyeOff className="w-3 h-3" />
-                              Hide
+                              <EyeOff className="w-3 h-3 shrink-0" />
+                              <span
+                                className={`watch-wall-tile-hide-label ${
+                                  wallCols === 4 ? 'hidden lg:inline' : 'hidden sm:inline'
+                                }`}
+                              >
+                                Hide
+                              </span>
                             </button>
                           </div>
                         </div>

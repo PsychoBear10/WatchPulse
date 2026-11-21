@@ -17,10 +17,12 @@ export function getTierLabel(
   return tiers.find((t) => t.id === tierId)?.name ?? inbox.name;
 }
 
-function escapeCsvFormulaCell(value: string): string {
+export function escapeCsv(value: string): string {
   if (!value) return value;
   return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
 }
+
+export const escapeCsvFormulaCell = escapeCsv;
 
 export function exportModelsToCsv(
   models: ModelRecord[],
@@ -31,18 +33,18 @@ export function exportModelsToCsv(
   const rows = models.map((model) => {
     const urls = buildModelUrls(model.username, urlTemplates);
     return {
-      'Model Name': escapeCsvFormulaCell(model.displayName || model.username),
-      Username: escapeCsvFormulaCell(model.username),
-      Tier: escapeCsvFormulaCell(getTierLabel(model.tierId, tiers, inbox)),
+      'Model Name': escapeCsv(model.displayName || model.username),
+      Username: escapeCsv(model.username),
+      Tier: escapeCsv(getTierLabel(model.tierId, tiers, inbox)),
       'CBExplorer Watchlist': model.cbexplorerAdded ? 'Added' : 'Not Added',
-      'Original Link': escapeCsvFormulaCell(model.originalLink),
-      'CBHours URL': urls.cbhours,
-      'CBExplorer URL': urls.cbexplorer,
-      'ArchiveBate URL': urls.archivebate,
-      Tags: escapeCsvFormulaCell(model.tags.join('; ')),
-      Notes: escapeCsvFormulaCell(model.notes),
-      Thumbnail: escapeCsvFormulaCell(model.thumbnail),
-      'Custom Links': escapeCsvFormulaCell(
+      'Original Link': escapeCsv(model.originalLink),
+      'CBHours URL': escapeCsv(urls.cbhours),
+      'CBExplorer URL': escapeCsv(urls.cbexplorer),
+      'ArchiveBate URL': escapeCsv(urls.archivebate),
+      Tags: escapeCsv(model.tags.join('; ')),
+      Notes: escapeCsv(model.notes),
+      Thumbnail: escapeCsv(model.thumbnail),
+      'Custom Links': escapeCsv(
         model.customLinks.map((l) => `${l.label}: ${l.url}`).join(' | ')
       ),
       'Created At': model.createdAt,

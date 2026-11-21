@@ -117,11 +117,22 @@ export function sanitizeClientSettings(
         typeof liveFeedRaw.enabled === 'boolean'
           ? liveFeedRaw.enabled
           : DEFAULT_LIVE_FEED.enabled,
-      endpointTemplate:
-        typeof liveFeedRaw.endpointTemplate === 'string' &&
-        liveFeedRaw.endpointTemplate.trim()
-          ? liveFeedRaw.endpointTemplate.trim()
-          : DEFAULT_LIVE_FEED.endpointTemplate,
+      endpointTemplate: (() => {
+        const raw =
+          typeof liveFeedRaw.endpointTemplate === 'string'
+            ? liveFeedRaw.endpointTemplate.trim()
+            : '';
+        if (
+          !raw ||
+          raw.includes('cbexplorer_users_online_v3.json') ||
+          raw.includes('cb_users_online_v3.json') ||
+          raw.includes('digitaloceanspaces.com') ||
+          raw.includes('cbexplorer.com')
+        ) {
+          return DEFAULT_LIVE_FEED.endpointTemplate;
+        }
+        return raw;
+      })(),
       affiliateWm:
         typeof liveFeedRaw.affiliateWm === 'string'
           ? liveFeedRaw.affiliateWm.trim()
@@ -358,11 +369,15 @@ export function sanitizeClientAppData(raw: unknown): AppData {
       if (!s.username) return;
       const uKey = s.username.toLowerCase();
       if (seenUsernames.has(uKey)) return;
-      if (s.deletedAt) {
-        const deletedMs = Date.parse(s.deletedAt);
-        if (Number.isFinite(deletedMs) && deletedMs <= retentionCutoffMs) {
-          return;
-        }
+      if (!s.deletedAt) {
+        s.deletedAt =
+          typeof m.updatedAt === 'string' && isValidIsoTimestamp(m.updatedAt)
+            ? m.updatedAt
+            : now;
+      }
+      const deletedMs = Date.parse(s.deletedAt);
+      if (Number.isFinite(deletedMs) && deletedMs <= retentionCutoffMs) {
+        return;
       }
       seenUsernames.add(uKey);
       const uniqueId = seenModelIds.has(s.id) ? `${s.id}_tr_${idx}` : s.id;

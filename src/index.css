@@ -21,6 +21,30 @@
   --text-secondary: #CBD5E1;
   --text-muted: #64748B;
   --brand-accent: #6366F1;
+
+  /* Organic Multi-Node Mesh Aura Tokens (Dark Mode: Deep Luminous Glow) */
+  --aura-blend-mode: screen;
+  --aura-container-opacity: 1;
+  --aura-cyan-gradient:
+    radial-gradient(ellipse at 28% 28%, #00F2FE 0%, rgba(0, 242, 254, 0.55) 30%, transparent 70%),
+    radial-gradient(ellipse at 72% 72%, rgba(37, 99, 235, 0.45) 0%, rgba(0, 242, 254, 0.20) 45%, transparent 80%);
+  --aura-azure-gradient:
+    radial-gradient(ellipse at 70% 30%, #2563EB 0%, rgba(37, 99, 235, 0.55) 35%, transparent 75%),
+    radial-gradient(ellipse at 30% 70%, rgba(124, 58, 237, 0.40) 0%, rgba(37, 99, 235, 0.25) 50%, transparent 80%);
+  --aura-violet-gradient:
+    radial-gradient(ellipse at 35% 65%, #7C3AED 0%, rgba(124, 58, 237, 0.50) 35%, transparent 75%),
+    radial-gradient(ellipse at 65% 35%, rgba(192, 38, 211, 0.42) 0%, rgba(124, 58, 237, 0.20) 50%, transparent 80%);
+  --aura-magenta-gradient:
+    radial-gradient(ellipse at 65% 60%, #C026D3 0%, rgba(192, 38, 211, 0.48) 32%, transparent 70%),
+    radial-gradient(ellipse at 30% 30%, rgba(124, 58, 237, 0.40) 0%, rgba(0, 242, 254, 0.20) 45%, transparent 75%);
+  --aura-emerald-gradient:
+    radial-gradient(ellipse at 35% 38%, #10B981 0%, rgba(16, 185, 129, 0.50) 32%, transparent 70%),
+    radial-gradient(ellipse at 70% 70%, rgba(0, 242, 254, 0.38) 0%, rgba(37, 99, 235, 0.20) 45%, transparent 75%);
+  --aura-nexus-gradient:
+    radial-gradient(ellipse at 40% 40%, rgba(37, 99, 235, 0.35) 0%, transparent 60%),
+    radial-gradient(ellipse at 60% 60%, rgba(124, 58, 237, 0.30) 0%, transparent 65%),
+    radial-gradient(ellipse at 50% 25%, rgba(0, 242, 254, 0.25) 0%, transparent 55%);
+  --aura-rim-gradient: linear-gradient(180deg, rgba(0, 242, 254, 0.20) 0%, rgba(37, 99, 235, 0.12) 45%, rgba(124, 58, 237, 0.05) 75%, transparent 100%);
 }
 
 [data-theme="grey"] {
@@ -41,6 +65,30 @@
   --text-secondary: #CBD5E1;
   --text-muted: #94A3B8;
   --brand-accent: #818CF8;
+
+  /* Organic Multi-Node Mesh Aura Tokens (Grey Mode: Sophisticated Indigo/Slate Tones) */
+  --aura-blend-mode: screen;
+  --aura-container-opacity: 0.85;
+  --aura-cyan-gradient:
+    radial-gradient(ellipse at 28% 28%, rgba(56, 189, 248, 0.45) 0%, rgba(99, 102, 241, 0.30) 32%, transparent 70%),
+    radial-gradient(ellipse at 72% 72%, rgba(79, 70, 229, 0.35) 0%, rgba(56, 189, 248, 0.15) 45%, transparent 80%);
+  --aura-azure-gradient:
+    radial-gradient(ellipse at 70% 30%, rgba(99, 102, 241, 0.48) 0%, rgba(79, 70, 229, 0.32) 35%, transparent 75%),
+    radial-gradient(ellipse at 30% 70%, rgba(129, 140, 248, 0.35) 0%, rgba(71, 85, 105, 0.20) 50%, transparent 80%);
+  --aura-violet-gradient:
+    radial-gradient(ellipse at 35% 65%, rgba(129, 140, 248, 0.42) 0%, rgba(99, 102, 241, 0.28) 35%, transparent 75%),
+    radial-gradient(ellipse at 65% 35%, rgba(168, 85, 247, 0.30) 0%, rgba(71, 85, 105, 0.18) 50%, transparent 80%);
+  --aura-magenta-gradient:
+    radial-gradient(ellipse at 65% 60%, rgba(168, 85, 247, 0.36) 0%, rgba(147, 51, 234, 0.24) 32%, transparent 70%),
+    radial-gradient(ellipse at 30% 30%, rgba(99, 102, 241, 0.28) 0%, rgba(71, 85, 105, 0.16) 45%, transparent 75%);
+  --aura-emerald-gradient:
+    radial-gradient(ellipse at 35% 38%, rgba(52, 211, 153, 0.38) 0%, rgba(20, 184, 166, 0.25) 32%, transparent 70%),
+    radial-gradient(ellipse at 70% 70%, rgba(99, 102, 241, 0.25) 0%, rgba(56, 189, 248, 0.15) 45%, transparent 75%);
+  --aura-nexus-gradient:
+    radial-gradient(ellipse at 40% 40%, rgba(99, 102, 241, 0.25) 0%, transparent 60%),
+    radial-gradient(ellipse at 60% 60%, rgba(129, 140, 248, 0.20) 0%, transparent 65%),
+    radial-gradient(ellipse at 50% 25%, rgba(56, 189, 248, 0.18) 0%, transparent 55%);
+  --aura-rim-gradient: linear-gradient(180deg, rgba(99, 102, 241, 0.18) 0%, rgba(79, 70, 229, 0.10) 45%, rgba(148, 163, 184, 0.04) 75%, transparent 100%);
 }
 
 [data-theme="light"] {
@@ -48,8 +96,8 @@
   --bg-surface: #FFFFFF;
   --bg-card: #F8FAFC;
   --bg-elevated: #FFFFFF;
-  --glass-bg: rgba(255, 255, 255, 0.84);
-  --glass-card-bg: rgba(255, 255, 255, 0.92);
+  --glass-bg: rgba(255, 255, 255, 0.82);
+  --glass-card-bg: rgba(255, 255, 255, 0.88);
   --glass-card-hover: rgba(255, 255, 255, 1);
   --glass-border: rgba(15, 23, 42, 0.08);
   --glass-border-hover: rgba(99, 102, 241, 0.50);
@@ -61,6 +109,30 @@
   --text-secondary: #334155;
   --text-muted: #64748B;
   --brand-accent: #4F46E5;
+
+  /* Organic Multi-Node Mesh Aura Tokens (Light Mode: Radiant Translucent Watercolor Refractions) */
+  --aura-blend-mode: normal;
+  --aura-container-opacity: 0.72;
+  --aura-cyan-gradient:
+    radial-gradient(ellipse at 28% 28%, rgba(0, 242, 254, 0.36) 0%, rgba(56, 189, 248, 0.22) 30%, transparent 70%),
+    radial-gradient(ellipse at 72% 72%, rgba(37, 99, 235, 0.20) 0%, rgba(0, 242, 254, 0.08) 45%, transparent 80%);
+  --aura-azure-gradient:
+    radial-gradient(ellipse at 70% 30%, rgba(37, 99, 235, 0.30) 0%, rgba(99, 102, 241, 0.18) 35%, transparent 75%),
+    radial-gradient(ellipse at 30% 70%, rgba(124, 58, 237, 0.16) 0%, rgba(56, 189, 248, 0.08) 50%, transparent 80%);
+  --aura-violet-gradient:
+    radial-gradient(ellipse at 35% 65%, rgba(124, 58, 237, 0.26) 0%, rgba(192, 38, 211, 0.16) 35%, transparent 75%),
+    radial-gradient(ellipse at 65% 35%, rgba(244, 114, 182, 0.14) 0%, rgba(124, 58, 237, 0.06) 50%, transparent 80%);
+  --aura-magenta-gradient:
+    radial-gradient(ellipse at 65% 60%, rgba(192, 38, 211, 0.24) 0%, rgba(236, 72, 153, 0.15) 32%, transparent 70%),
+    radial-gradient(ellipse at 30% 30%, rgba(124, 58, 237, 0.14) 0%, rgba(0, 242, 254, 0.06) 45%, transparent 75%);
+  --aura-emerald-gradient:
+    radial-gradient(ellipse at 35% 38%, rgba(16, 185, 129, 0.28) 0%, rgba(6, 182, 212, 0.16) 32%, transparent 70%),
+    radial-gradient(ellipse at 70% 70%, rgba(37, 99, 235, 0.12) 0%, rgba(16, 185, 129, 0.05) 45%, transparent 75%);
+  --aura-nexus-gradient:
+    radial-gradient(ellipse at 40% 40%, rgba(56, 189, 248, 0.18) 0%, transparent 60%),
+    radial-gradient(ellipse at 60% 60%, rgba(124, 58, 237, 0.12) 0%, transparent 65%),
+    radial-gradient(ellipse at 50% 25%, rgba(16, 185, 129, 0.10) 0%, transparent 55%);
+  --aura-rim-gradient: linear-gradient(180deg, rgba(0, 242, 254, 0.14) 0%, rgba(37, 99, 235, 0.07) 45%, rgba(124, 58, 237, 0.03) 75%, transparent 100%);
 }
 
 @layer base {
@@ -72,6 +144,21 @@
     color: var(--text-primary);
     overflow: hidden;
     transition: background-color 0.25s ease, color 0.25s ease;
+  }
+
+  body {
+    background-image:
+      radial-gradient(ellipse 90% 45% at 50% -10%, rgba(6, 182, 212, 0.28) 0%, rgba(37, 99, 235, 0.20) 35%, rgba(124, 58, 237, 0.10) 60%, transparent 80%),
+      radial-gradient(ellipse 60% 30% at 20% 10%, rgba(56, 189, 248, 0.22) 0%, transparent 60%),
+      radial-gradient(ellipse 55% 30% at 80% 15%, rgba(139, 92, 246, 0.18) 0%, transparent 60%);
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+  }
+
+  [data-theme="light"] body {
+    background-image:
+      radial-gradient(ellipse 90% 45% at 50% -10%, rgba(6, 182, 212, 0.10) 0%, rgba(37, 99, 235, 0.08) 35%, rgba(124, 58, 237, 0.04) 60%, transparent 80%),
+      radial-gradient(ellipse 60% 30% at 20% 10%, rgba(56, 189, 248, 0.08) 0%, transparent 60%);
   }
 
   * {
@@ -102,24 +189,24 @@
   /* Apple Liquid Glass Primitives */
   .liquid-glass {
     background: var(--glass-bg);
-    backdrop-filter: blur(24px) saturate(160%);
-    -webkit-backdrop-filter: blur(24px) saturate(160%);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
     border: 1px solid var(--glass-border);
     box-shadow: inset 0 1px 1px 0 var(--glass-specular), var(--glass-shadow);
   }
 
   .liquid-glass-header {
     background: var(--glass-bg);
-    backdrop-filter: blur(24px) saturate(160%);
-    -webkit-backdrop-filter: blur(24px) saturate(160%);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
     border-bottom: 1px solid var(--glass-border);
-    box-shadow: inset 0 -1px 0 0 var(--glass-border);
+    box-shadow: inset 0 1px 1px 0 var(--glass-specular), inset 0 -1px 0 0 var(--glass-border);
   }
 
   .liquid-glass-card {
     background: var(--glass-card-bg);
-    backdrop-filter: blur(20px) saturate(150%);
-    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    backdrop-filter: blur(24px) saturate(160%);
+    -webkit-backdrop-filter: blur(24px) saturate(160%);
     border: 1px solid var(--glass-border);
     box-shadow: inset 0 1px 1px 0 var(--glass-specular), 0 8px 24px -6px rgba(0, 0, 0, 0.25);
     border-radius: 1.25rem;
@@ -166,7 +253,7 @@
   }
 
   .kbd-cap {
-    @apply inline-flex items-center justify-center min-w-[1.35rem] h-[1.35rem] px-1.5 text-[11px] font-mono font-semibold leading-none rounded-lg border border-white/15 bg-black/40 text-slate-200 shadow-[inset_0_-1px_0_rgba(255,255,255,0.12)];
+    @apply inline-flex items-center justify-center align-middle -translate-y-px min-w-[1.35rem] h-[1.35rem] px-1.5 text-[11px] font-mono font-semibold leading-none rounded-lg border border-white/15 bg-black/40 text-slate-200 shadow-[inset_0_-1px_0_rgba(255,255,255,0.12)];
   }
 
   [data-theme="light"] .kbd-cap {
@@ -178,38 +265,50 @@
 
   .studio-panel {
     background: var(--glass-bg);
-    backdrop-filter: blur(24px) saturate(160%);
-    -webkit-backdrop-filter: blur(24px) saturate(160%);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
     border: 1px solid var(--glass-border);
     border-radius: 1.25rem;
     box-shadow: inset 0 1px 1px 0 var(--glass-specular), var(--glass-shadow);
   }
 
+  /* Window Chrome Drag & Controls */
+  .app-region-drag {
+    -webkit-app-region: drag;
+  }
+  .app-region-no-drag {
+    -webkit-app-region: no-drag;
+  }
+
   /* 3D Opaque Liquid Glass Floating Sidebar & Cards (Apple iOS / visionOS style) */
   .liquid-sidebar-3d {
-    background: linear-gradient(180deg, rgba(16, 21, 33, 0.95) 0%, rgba(11, 15, 24, 0.97) 100%);
-    backdrop-filter: blur(32px) saturate(190%);
-    -webkit-backdrop-filter: blur(32px) saturate(190%);
+    background: linear-gradient(180deg, rgba(16, 21, 33, 0.82) 0%, rgba(11, 15, 24, 0.88) 100%);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
     border: 1px solid rgba(255, 255, 255, 0.12);
     box-shadow:
       0 20px 48px -10px rgba(0, 0, 0, 0.70),
       0 8px 20px -4px rgba(0, 0, 0, 0.45),
-      inset 0 1px 1px 0 rgba(255, 255, 255, 0.22),
+      inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.24),
       inset 0 0 0 1px rgba(255, 255, 255, 0.05);
   }
 
   [data-theme="grey"] .liquid-sidebar-3d {
-    background: linear-gradient(180deg, rgba(32, 38, 52, 0.95) 0%, rgba(22, 27, 38, 0.97) 100%);
+    background: linear-gradient(180deg, rgba(32, 38, 52, 0.82) 0%, rgba(22, 27, 38, 0.88) 100%);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
     border-color: rgba(255, 255, 255, 0.14);
     box-shadow:
       0 20px 44px -10px rgba(0, 0, 0, 0.55),
       0 8px 18px -4px rgba(0, 0, 0, 0.35),
-      inset 0 1px 1px 0 rgba(255, 255, 255, 0.25),
+      inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.26),
       inset 0 0 0 1px rgba(255, 255, 255, 0.06);
   }
 
   [data-theme="light"] .liquid-sidebar-3d {
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.93) 0%, rgba(245, 248, 252, 0.96) 100%);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.84) 0%, rgba(245, 248, 252, 0.90) 100%);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
     border-color: rgba(15, 23, 42, 0.10);
     box-shadow:
       0 20px 40px -10px rgba(15, 23, 42, 0.12),
@@ -220,29 +319,33 @@
 
   /* 3D Liquid Glass Cards & Modules */
   .liquid-card-3d {
-    background: linear-gradient(180deg, rgba(18, 23, 36, 0.94) 0%, rgba(12, 16, 26, 0.97) 100%);
+    background: linear-gradient(180deg, rgba(18, 23, 36, 0.84) 0%, rgba(12, 16, 26, 0.90) 100%);
     backdrop-filter: blur(28px) saturate(180%);
     -webkit-backdrop-filter: blur(28px) saturate(180%);
     border: 1px solid rgba(255, 255, 255, 0.12);
     box-shadow:
       0 20px 48px -12px rgba(0, 0, 0, 0.65),
       0 8px 20px -4px rgba(0, 0, 0, 0.40),
-      inset 0 1px 1px 0 rgba(255, 255, 255, 0.20),
+      inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.22),
       inset 0 0 0 1px rgba(255, 255, 255, 0.04);
   }
 
   [data-theme="grey"] .liquid-card-3d {
-    background: linear-gradient(180deg, rgba(36, 42, 56, 0.94) 0%, rgba(24, 29, 40, 0.97) 100%);
+    background: linear-gradient(180deg, rgba(36, 42, 56, 0.84) 0%, rgba(24, 29, 40, 0.90) 100%);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
     border-color: rgba(255, 255, 255, 0.14);
     box-shadow:
       0 20px 44px -12px rgba(0, 0, 0, 0.50),
       0 8px 18px -4px rgba(0, 0, 0, 0.30),
-      inset 0 1px 1px 0 rgba(255, 255, 255, 0.24),
+      inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.25),
       inset 0 0 0 1px rgba(255, 255, 255, 0.05);
   }
 
   [data-theme="light"] .liquid-card-3d {
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(246, 249, 253, 0.98) 100%);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.86) 0%, rgba(246, 249, 253, 0.92) 100%);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
     border-color: rgba(15, 23, 42, 0.10);
     box-shadow:
       0 18px 36px -10px rgba(15, 23, 42, 0.10),
@@ -318,8 +421,8 @@
   --bg-surface: #FFFFFF;
   --bg-card: #FFFFFF;
   --bg-elevated: #F8FAFC;
-  --glass-bg: rgba(255, 255, 255, 0.88);
-  --glass-card-bg: rgba(255, 255, 255, 0.95);
+  --glass-bg: rgba(255, 255, 255, 0.82);
+  --glass-card-bg: rgba(255, 255, 255, 0.88);
   --glass-card-hover: #FFFFFF;
   --glass-border: rgba(15, 23, 42, 0.12);
   --glass-border-hover: rgba(99, 102, 241, 0.60);
@@ -393,7 +496,10 @@
 [data-theme="light"] .bg-rose-600,
 [data-theme="light"] .bg-rose-600 span,
 [data-theme="light"] .bg-emerald-600,
-[data-theme="light"] .bg-emerald-600 span {
+[data-theme="light"] .bg-emerald-600 span,
+[data-theme="light"] .bg-amber-600,
+[data-theme="light"] button.bg-amber-600,
+[data-theme="light"] .bg-amber-600 span {
   color: #FFFFFF !important;
 }
 
@@ -424,6 +530,11 @@
   color: #9F1239 !important; /* Deep Rose */
 }
 
+[data-theme="light"] .text-violet-200,
+[data-theme="light"] .text-violet-300 {
+  color: #6D28D9 !important; /* Deep Violet */
+}
+
 /* Background Replacements for Hardcoded Dark Colors in Light Mode */
 [data-theme="light"] .bg-\[\#0C0F16\],
 [data-theme="light"] .bg-\[\#0D1017\],
@@ -436,8 +547,93 @@
 [data-theme="light"] .bg-\[\#141824\],
 [data-theme="light"] .bg-\[\#151924\],
 [data-theme="light"] .bg-\[\#161B27\],
-[data-theme="light"] .bg-\[\#0F121A\] {
+[data-theme="light"] .bg-\[\#0F121A\],
+[data-theme="light"] .bg-\[\#10131C\],
+[data-theme="light"] .bg-\[\#07090E\],
+[data-theme="light"] .bg-\[\#090B10\],
+[data-theme="light"] .bg-\[\#0A0C12\],
+[data-theme="light"] .bg-\[\#0B0D14\],
+[data-theme="light"] .bg-\[\#111521\],
+[data-theme="light"] .bg-\[\#121622\],
+[data-theme="light"] .bg-\[\#161B28\],
+[data-theme="light"] .bg-\[\#141822\] {
   background-color: var(--glass-card-bg) !important;
+}
+
+/* Light Mode Hover & Focus Inversions */
+[data-theme="light"] .hover\:bg-\[\#191F2E\]:hover,
+[data-theme="light"] .hover\:bg-\[\#1E2436\]:hover,
+[data-theme="light"] .hover\:bg-\[\#1C2130\]:hover {
+  background-color: #E2E8F0 !important;
+  color: #0F172A !important;
+}
+
+[data-theme="light"] .focus\:bg-\[\#0B0E15\]:focus {
+  background-color: #FFFFFF !important;
+  color: #0F172A !important;
+}
+
+/* TopNav Active Theme Pill (Bug 65) */
+[data-theme="light"] .liquid-segmented .bg-white\/20 {
+  background-color: #FFFFFF !important;
+  color: var(--brand-accent, #4F46E5) !important;
+  border-color: rgba(15, 23, 42, 0.12) !important;
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.12), 0 1px 2px -1px rgba(15, 23, 42, 0.08) !important;
+}
+
+[data-theme="light"] .liquid-segmented .bg-white\/20 svg {
+  color: var(--brand-accent, #4F46E5) !important;
+}
+
+/* Light Mode Toast Inversions (Bug 52) */
+[data-theme="light"] .bg-\[\#101C18\],
+[data-theme="light"] .animate-toast-in.bg-\[\#101C18\] {
+  background-color: #ECFDF5 !important;
+  border-color: #10B981 !important;
+  color: #064E3B !important;
+}
+[data-theme="light"] .bg-\[\#101C18\] span,
+[data-theme="light"] .animate-toast-in.bg-\[\#101C18\] span {
+  color: #064E3B !important;
+}
+
+[data-theme="light"] .bg-\[\#1B160F\],
+[data-theme="light"] .animate-toast-in.bg-\[\#1B160F\] {
+  background-color: #FFFBEB !important;
+  border-color: #F59E0B !important;
+  color: #78350F !important;
+}
+[data-theme="light"] .bg-\[\#1B160F\] span,
+[data-theme="light"] .animate-toast-in.bg-\[\#1B160F\] span {
+  color: #78350F !important;
+}
+
+[data-theme="light"] .bg-\[\#1D1014\],
+[data-theme="light"] .animate-toast-in.bg-\[\#1D1014\] {
+  background-color: #FFF1F2 !important;
+  border-color: #F43F5E !important;
+  color: #881337 !important;
+}
+[data-theme="light"] .bg-\[\#1D1014\] span,
+[data-theme="light"] .animate-toast-in.bg-\[\#1D1014\] span {
+  color: #881337 !important;
+}
+
+[data-theme="light"] .bg-\[\#121622\],
+[data-theme="light"] .animate-toast-in.bg-\[\#121622\] {
+  background-color: #EEF2FF !important;
+  border-color: #6366F1 !important;
+  color: #312E81 !important;
+}
+[data-theme="light"] .bg-\[\#121622\] span,
+[data-theme="light"] .animate-toast-in.bg-\[\#121622\] span {
+  color: #312E81 !important;
+}
+
+[data-theme="light"] thead.bg-\[\#121622\] {
+  background-color: var(--glass-card-bg) !important;
+  border-color: rgba(15, 23, 42, 0.12) !important;
+  color: #475569 !important;
 }
 
 /* Borders in Light Mode */
@@ -513,4 +709,263 @@
 
 .animate-toast-in {
   animation: toast-in 160ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 8s linear infinite;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 200ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Custom Scrollbar Utility */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.25) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.25);
+  border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(148, 163, 184, 0.45);
+}
+
+[data-theme="light"] .custom-scrollbar {
+  scrollbar-color: rgba(15, 23, 42, 0.22) transparent;
+}
+
+[data-theme="light"] .custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(15, 23, 42, 0.22);
+}
+
+[data-theme="light"] .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(15, 23, 42, 0.40);
+}
+
+/* ==========================================================================
+   Live Organic Multi-Node Mesh Aura System
+   GPU Hardware-Accelerated 3D Fluid Drift Curves & Refraction Synergy
+   ========================================================================== */
+
+.aura-container {
+  contain: layout paint;
+  transform: translateZ(0);
+  opacity: var(--aura-container-opacity, 1);
+  transition: opacity 0.4s ease;
+}
+
+.aura-node {
+  position: absolute;
+  border-radius: 9999px;
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  mix-blend-mode: var(--aura-blend-mode, screen);
+  pointer-events: none;
+}
+
+.aura-node-cyan {
+  background: var(--aura-cyan-gradient);
+}
+
+.aura-node-azure {
+  background: var(--aura-azure-gradient);
+}
+
+.aura-node-violet {
+  background: var(--aura-violet-gradient);
+}
+
+.aura-node-magenta {
+  background: var(--aura-magenta-gradient);
+}
+
+.aura-node-emerald {
+  background: var(--aura-emerald-gradient);
+}
+
+.aura-node-nexus {
+  background: var(--aura-nexus-gradient);
+}
+
+.aura-node-rim {
+  background: var(--aura-rim-gradient);
+}
+
+/* GPU Hardware-Accelerated 3D Organic Drift Keyframes (20s-32s harmonic cycles) */
+@keyframes aura-drift-cyan {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
+  }
+  25% {
+    transform: translate3d(7vw, 5vh, 0) scale(1.14) rotate(6deg);
+  }
+  50% {
+    transform: translate3d(-5vw, 11vh, 0) scale(0.92) rotate(-4deg);
+  }
+  75% {
+    transform: translate3d(8vw, 3vh, 0) scale(1.18) rotate(8deg);
+  }
+  100% {
+    transform: translate3d(-3vw, -6vh, 0) scale(1.06) rotate(-3deg);
+  }
+}
+
+@keyframes aura-drift-azure {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1.05) rotate(0deg);
+  }
+  30% {
+    transform: translate3d(-9vw, -7vh, 0) scale(0.90) rotate(-6deg);
+  }
+  60% {
+    transform: translate3d(8vw, 8vh, 0) scale(1.15) rotate(5deg);
+  }
+  85% {
+    transform: translate3d(-5vw, 6vh, 0) scale(0.97) rotate(-3deg);
+  }
+  100% {
+    transform: translate3d(6vw, -4vh, 0) scale(1.10) rotate(4deg);
+  }
+}
+
+@keyframes aura-drift-violet {
+  0% {
+    transform: translate3d(0, 0, 0) scale(0.95) rotate(0deg);
+  }
+  33% {
+    transform: translate3d(11vw, -9vh, 0) scale(1.18) rotate(7deg);
+  }
+  66% {
+    transform: translate3d(-8vw, 6vh, 0) scale(1.02) rotate(-5deg);
+  }
+  100% {
+    transform: translate3d(5vw, 9vh, 0) scale(1.12) rotate(4deg);
+  }
+}
+
+@keyframes aura-drift-magenta {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
+  }
+  25% {
+    transform: translate3d(-10vw, 9vh, 0) scale(1.16) rotate(-7deg);
+  }
+  50% {
+    transform: translate3d(6vw, -7vh, 0) scale(0.88) rotate(5deg);
+  }
+  75% {
+    transform: translate3d(-5vw, -5vh, 0) scale(1.14) rotate(-4deg);
+  }
+  100% {
+    transform: translate3d(8vw, 6vh, 0) scale(1.05) rotate(6deg);
+  }
+}
+
+@keyframes aura-drift-emerald {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
+  }
+  35% {
+    transform: translate3d(-8vw, 10vh, 0) scale(1.14) rotate(5deg);
+  }
+  70% {
+    transform: translate3d(9vw, -6vh, 0) scale(0.91) rotate(-6deg);
+  }
+  100% {
+    transform: translate3d(-4vw, 5vh, 0) scale(1.08) rotate(3deg);
+  }
+}
+
+@keyframes aura-drift-nexus {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
+  }
+  40% {
+    transform: translate3d(6vw, -8vh, 0) scale(1.12) rotate(-4deg);
+  }
+  75% {
+    transform: translate3d(-7vw, 7vh, 0) scale(0.95) rotate(5deg);
+  }
+  100% {
+    transform: translate3d(4vw, 5vh, 0) scale(1.07) rotate(-2deg);
+  }
+}
+
+.animate-aura-cyan {
+  animation: aura-drift-cyan 24s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite alternate;
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+.animate-aura-azure {
+  animation: aura-drift-azure 28s cubic-bezier(0.42, 0, 0.58, 1) infinite alternate;
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+.animate-aura-violet {
+  animation: aura-drift-violet 22s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite alternate;
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+.animate-aura-magenta {
+  animation: aura-drift-magenta 32s cubic-bezier(0.42, 0, 0.58, 1) infinite alternate;
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+.animate-aura-emerald {
+  animation: aura-drift-emerald 26s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite alternate;
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+.animate-aura-nexus {
+  animation: aura-drift-nexus 30s cubic-bezier(0.42, 0, 0.58, 1) infinite alternate;
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-aura-cyan,
+  .animate-aura-azure,
+  .animate-aura-violet,
+  .animate-aura-magenta,
+  .animate-aura-emerald,
+  .animate-aura-nexus {
+    animation: none !important;
+  }
 }

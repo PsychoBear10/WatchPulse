@@ -218,6 +218,7 @@ export interface ElectronBridgeAPI {
   readClipboardText: () => Promise<string>;
   getAppInfo: () => Promise<AppInfo>;
   fetchLiveJson: (url: string, authHeader?: string) => Promise<LiveFetchResult>;
+  checkWatchlistModels?: (usernames: string[]) => Promise<Record<string, LiveRoomInfo>>;
   resolveLiveStream: (username: string) => Promise<LiveStreamResolveResult>;
   deleteThumbnail: (mediaUrl: string) => Promise<boolean>;
   openPip?: (params: PipParams) => Promise<PipState>;
@@ -227,6 +228,11 @@ export interface ElectronBridgeAPI {
   focusMainWindow?: () => Promise<void>;
   onPipStateChanged?: (callback: (state: PipState) => void) => () => void;
   onPipNavigate?: (callback: (params: PipParams) => void) => () => void;
+  minimizeWindow?: () => Promise<void>;
+  maximizeWindow?: () => Promise<boolean>;
+  closeWindow?: () => Promise<void>;
+  isWindowMaximized?: () => Promise<boolean>;
+  onWindowMaximizeChange?: (callback: (isMaximized: boolean) => void) => () => void;
 }
 
 declare global {

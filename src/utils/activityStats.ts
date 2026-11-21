@@ -22,7 +22,7 @@ export function getHourBucketKey(date = new Date()): string {
 export interface CbexplorerStreamSession {
   streamId?: number;
   startTime?: string;
-  endTime?: string;
+  endTime?: string | null;
   avgViewers?: number;
   maxViewers?: number;
 }
@@ -37,8 +37,7 @@ function prunePresenceBuckets(
   const next: Record<string, number> = {};
   if (!existing) return next;
   for (const [key, mins] of Object.entries(existing)) {
-    const datePart = key.slice(0, 10);
-    const parsedMs = Date.parse(`${datePart}T00:00:00`);
+    const parsedMs = Date.parse(`${key}:00:00`);
     if (Number.isFinite(parsedMs) && parsedMs >= cutoffMs && mins > 0) {
       next[key] = Math.min(60, mins);
     }
@@ -55,8 +54,10 @@ export function recordPresenceTick(
   const cutoffMs = now.getTime() - RETENTION_DAYS * 24 * 60 * 60 * 1000;
   const next = prunePresenceBuckets(existing, cutoffMs);
 
-  const prevMins = next[bucket] ?? 0;
-  next[bucket] = Math.min(60, Number((prevMins + minutesToAdd).toFixed(2)));
+  if (Number.isFinite(minutesToAdd) && minutesToAdd > 0) {
+    const prevMins = next[bucket] ?? 0;
+    next[bucket] = Math.min(60, Number((prevMins + minutesToAdd).toFixed(2)));
+  }
   return next;
 }
 
@@ -83,18 +84,33 @@ export function buildPresenceHoursFromCbexplorerStreams(
   let latestEndMs = 0;
 
   for (const session of streams) {
-    if (!session || typeof session.startTime !== 'string' || typeof session.endTime !== 'string') {
+    if (!session || typeof session.startTime !== 'string') {
       continue;
     }
     const rawStartMs = Date.parse(session.startTime);
-    const rawEndMs = Date.parse(session.endTime);
-    if (!Number.isFinite(rawStartMs) || !Number.isFinite(rawEndMs) || rawEndMs <= rawStartMs) {
+    if (!Number.isFinite(rawStartMs)) {
       continue;
     }
 
-    const cappedEndMs = Math.min(rawEndMs, nowMs);
-    if (cappedEndMs - rawStartMs > MAX_SESSION_MS) {
+    let cappedEndMs: number;
+    if (session.endTime === null || session.endTime === undefined) {
+      cappedEndMs = nowMs;
+    } else if (typeof session.endTime === 'string') {
+      const rawEndMs = Date.parse(session.endTime);
+      if (!Number.isFinite(rawEndMs) || rawEndMs <= rawStartMs) {
+        continue;
+      }
+      cappedEndMs = Math.min(rawEndMs, nowMs);
+    } else {
       continue;
+    }
+
+    if (cappedEndMs <= rawStartMs) {
+      continue;
+    }
+
+    if (cappedEndMs - rawStartMs > MAX_SESSION_MS) {
+      cappedEndMs = rawStartMs + MAX_SESSION_MS;
     }
 
     streamsCount += 1;
@@ -258,6 +274,9 @@ export function getUsuallyLiveNowMeta(
 
     if (hour !== prevHour && hour !== curHour && hour !== nextHour) continue;
 
+    // Do not let today's ongoing live tick self-predict a schedule habit
+    if (rawDateKey === todayKey) continue;
+
     const slotMid = getAlignedSlotDate(
       year,
       month,
@@ -268,8 +287,6 @@ export function getUsuallyLiveNowMeta(
       nextHour
     );
     const slotKey = formatDateKey(slotMid);
-    // Do not let today's ongoing live tick self-predict a schedule habit
-    if (slotKey === todayKey) continue;
 
     const ageDays = Math.max(
       1,
@@ -521,5 +538,330 @@ export function computeActivitySummary(
     heatmap,
     maxCellMinutes,
     peakWindowLabel,
+  };
+}
+
+export interface MatrixModelItem {
+  id: string;
+  username: string;
+  displayName: string;
+  tierId: string;
+  thumbnail?: string;
+  minutes: number;
+  hours: number;
+}
+
+export interface ScheduleMatrixCell {
+  dayIndex: number; // 0 = Mon .. 6 = Sun
+  dayName: string;
+  dayShort: string;
+  hour: number;
+  hourLabel: string;
+  timeWindowLabel: string;
+  activeModelCount: number;
+  totalMinutes: number;
+  totalHours: number;
+  models: MatrixModelItem[];
+}
+
+export interface WatchlistScheduleMatrixResult {
+  matrix: ScheduleMatrixCell[][]; // [dayIndex 0..6][hour 0..23]
+  maxModelCount: number;
+  maxMinutes: number;
+  totalModelsConsidered: number;
+  modelsWithScheduleData: number;
+  totalBroadcastHours30d: number;
+  peakWindow: {
+    dayIndex: number;
+    dayName: string;
+    dayShort: string;
+    startHour: number;
+    endHour: number;
+    label: string;
+    modelCount: number;
+    totalHours: number;
+    topModels: MatrixModelItem[];
+  };
+  mostActiveDay: {
+    dayIndex: number;
+    dayName: string;
+    dayShort: string;
+    totalHours: number;
+    activeModelCount: number;
+  };
+  currentSlot: {
+    dayIndex: number;
+    dayName: string;
+    dayShort: string;
+    hour: number;
+    hourLabel: string;
+    timeWindowLabel: string;
+    activeModelCount: number;
+    models: MatrixModelItem[];
+  };
+  upcoming2Hours: {
+    expectedModelCount: number;
+    models: MatrixModelItem[];
+  };
+}
+
+const MATRIX_DAY_NAMES = [
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+  'Sunday',
+];
+const MATRIX_DAY_SHORTS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+export function computeWatchlistScheduleMatrix(
+  models: ModelRecord[],
+  options?: { tierId?: string; now?: Date }
+): WatchlistScheduleMatrixResult {
+  const now = options?.now ?? new Date();
+  const selectedTier = options?.tierId;
+
+  const targetModels = models.filter((m) => {
+    if (m.deletedAt) return false;
+    if (selectedTier && selectedTier !== 'all' && m.tierId !== selectedTier) {
+      return false;
+    }
+    return true;
+  });
+
+  const matrix: ScheduleMatrixCell[][] = Array.from({ length: 7 }, (_, d) =>
+    Array.from({ length: 24 }, (_, h) => {
+      const startH = pad2(h);
+      const endH = pad2((h + 1) % 24);
+      return {
+        dayIndex: d,
+        dayName: MATRIX_DAY_NAMES[d],
+        dayShort: MATRIX_DAY_SHORTS[d],
+        hour: h,
+        hourLabel: `${startH}:00`,
+        timeWindowLabel: `${startH}:00 – ${endH}:00`,
+        activeModelCount: 0,
+        totalMinutes: 0,
+        totalHours: 0,
+        models: [],
+      };
+    })
+  );
+
+  const cutoffMs = now.getTime() - 30 * 24 * 60 * 60 * 1000;
+  const modelsWithData = new Set<string>();
+  let totalTrackedMinutes = 0;
+
+  for (const model of targetModels) {
+    if (!model.presenceHours) continue;
+
+    const modelSlotMins: number[][] = Array.from({ length: 7 }, () =>
+      Array.from({ length: 24 }, () => 0)
+    );
+    let hasValidData = false;
+
+    for (const [key, mins] of Object.entries(model.presenceHours)) {
+      const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2})$/.exec(key);
+      if (!match || mins <= 0) continue;
+
+      const year = Number.parseInt(match[1], 10);
+      const month = Number.parseInt(match[2], 10) - 1;
+      const day = Number.parseInt(match[3], 10);
+      const hour = Number.parseInt(match[4], 10);
+      if (hour < 0 || hour > 23) continue;
+
+      const dt = new Date(year, month, day, hour, 0, 0, 0);
+      if (dt.getTime() < cutoffMs) continue;
+
+      const jsDay = dt.getDay(); // Sun=0..Sat=6
+      const monIdx = (jsDay + 6) % 7; // Mon=0..Sun=6
+
+      modelSlotMins[monIdx][hour] += mins;
+      hasValidData = true;
+    }
+
+    if (hasValidData) {
+      modelsWithData.add(model.id);
+
+      for (let d = 0; d < 7; d += 1) {
+        for (let h = 0; h < 24; h += 1) {
+          const slotMins = modelSlotMins[d][h];
+          if (slotMins > 0) {
+            matrix[d][h].totalMinutes += slotMins;
+            totalTrackedMinutes += slotMins;
+            matrix[d][h].models.push({
+              id: model.id,
+              username: model.username,
+              displayName: model.displayName || model.username,
+              tierId: model.tierId,
+              thumbnail: model.thumbnail,
+              minutes: Math.round(slotMins),
+              hours: Number((slotMins / 60).toFixed(1)),
+            });
+          }
+        }
+      }
+    }
+  }
+
+  let maxModelCount = 0;
+  let maxMinutes = 0;
+
+  for (let d = 0; d < 7; d += 1) {
+    for (let h = 0; h < 24; h += 1) {
+      const cell = matrix[d][h];
+      cell.models.sort((a, b) => b.minutes - a.minutes);
+      cell.activeModelCount = cell.models.length;
+      cell.totalHours = Number((cell.totalMinutes / 60).toFixed(1));
+      if (cell.activeModelCount > maxModelCount) {
+        maxModelCount = cell.activeModelCount;
+      }
+      if (cell.totalMinutes > maxMinutes) {
+        maxMinutes = cell.totalMinutes;
+      }
+    }
+  }
+
+  // Find 2-hour peak window across the entire week
+  let bestDay = 4; // default Friday
+  let bestStartHour = 21;
+  let bestWindowModelCount = -1;
+  let bestWindowTotalMins = -1;
+  let bestWindowTopModels: MatrixModelItem[] = [];
+
+  for (let d = 0; d < 7; d += 1) {
+    for (let h = 0; h < 24; h += 1) {
+      const hNext = (h + 1) % 24;
+      const dNext = hNext === 0 ? (d + 1) % 7 : d;
+      const combined = new Map<string, MatrixModelItem>();
+      for (const m of matrix[d][h].models) {
+        combined.set(m.id, { ...m });
+      }
+      for (const m of matrix[dNext][hNext].models) {
+        const existing = combined.get(m.id);
+        if (existing) {
+          existing.minutes += m.minutes;
+          existing.hours = Number((existing.minutes / 60).toFixed(1));
+        } else {
+          combined.set(m.id, { ...m });
+        }
+      }
+
+      const distinctCount = combined.size;
+      const totalMins =
+        matrix[d][h].totalMinutes + matrix[dNext][hNext].totalMinutes;
+
+      if (
+        distinctCount > bestWindowModelCount ||
+        (distinctCount === bestWindowModelCount &&
+          totalMins > bestWindowTotalMins)
+      ) {
+        bestWindowModelCount = distinctCount;
+        bestWindowTotalMins = totalMins;
+        bestDay = d;
+        bestStartHour = h;
+        bestWindowTopModels = Array.from(combined.values()).sort(
+          (a, b) => b.minutes - a.minutes
+        );
+      }
+    }
+  }
+
+  const peakEndHour = (bestStartHour + 2) % 24;
+  const peakWindow = {
+    dayIndex: bestDay,
+    dayName: MATRIX_DAY_NAMES[bestDay],
+    dayShort: MATRIX_DAY_SHORTS[bestDay],
+    startHour: bestStartHour,
+    endHour: peakEndHour,
+    label: `${MATRIX_DAY_SHORTS[bestDay]} ${pad2(bestStartHour)}:00 – ${pad2(
+      peakEndHour
+    )}:00`,
+    modelCount: Math.max(0, bestWindowModelCount),
+    totalHours: Number((Math.max(0, bestWindowTotalMins) / 60).toFixed(1)),
+    topModels: bestWindowTopModels.slice(0, 5),
+  };
+
+  // Find most active day of the week
+  let mostActiveDayIdx = 5; // default Saturday
+  let mostActiveDayMins = -1;
+  let mostActiveDayDistinctModels = 0;
+
+  for (let d = 0; d < 7; d += 1) {
+    let dayMins = 0;
+    const dayModelIds = new Set<string>();
+    for (let h = 0; h < 24; h += 1) {
+      dayMins += matrix[d][h].totalMinutes;
+      for (const m of matrix[d][h].models) {
+        dayModelIds.add(m.id);
+      }
+    }
+    if (dayMins > mostActiveDayMins) {
+      mostActiveDayMins = dayMins;
+      mostActiveDayIdx = d;
+      mostActiveDayDistinctModels = dayModelIds.size;
+    }
+  }
+
+  const mostActiveDay = {
+    dayIndex: mostActiveDayIdx,
+    dayName: MATRIX_DAY_NAMES[mostActiveDayIdx],
+    dayShort: MATRIX_DAY_SHORTS[mostActiveDayIdx],
+    totalHours: Number((Math.max(0, mostActiveDayMins) / 60).toFixed(1)),
+    activeModelCount: mostActiveDayDistinctModels,
+  };
+
+  // Current slot info
+  const curDay = (now.getDay() + 6) % 7; // Mon=0 .. Sun=6
+  const curHour = now.getHours();
+  const currentCell = matrix[curDay][curHour];
+
+  const currentSlot = {
+    dayIndex: curDay,
+    dayName: MATRIX_DAY_NAMES[curDay],
+    dayShort: MATRIX_DAY_SHORTS[curDay],
+    hour: curHour,
+    hourLabel: currentCell.hourLabel,
+    timeWindowLabel: currentCell.timeWindowLabel,
+    activeModelCount: currentCell.activeModelCount,
+    models: currentCell.models,
+  };
+
+  // Upcoming 2 hours
+  const up1H = (curHour + 1) % 24;
+  const up1Day = up1H === 0 ? (curDay + 1) % 7 : curDay;
+  const up2H = (curHour + 2) % 24;
+  const up2Day = up2H <= 1 ? (curDay + 1) % 7 : curDay;
+
+  const upcomingMap = new Map<string, MatrixModelItem>();
+  for (const m of matrix[up1Day][up1H].models) {
+    upcomingMap.set(m.id, { ...m });
+  }
+  for (const m of matrix[up2Day][up2H].models) {
+    if (!upcomingMap.has(m.id)) {
+      upcomingMap.set(m.id, { ...m });
+    }
+  }
+
+  const upcomingModels = Array.from(upcomingMap.values()).sort(
+    (a, b) => b.minutes - a.minutes
+  );
+
+  return {
+    matrix,
+    maxModelCount,
+    maxMinutes,
+    totalModelsConsidered: targetModels.length,
+    modelsWithScheduleData: modelsWithData.size,
+    totalBroadcastHours30d: Number((totalTrackedMinutes / 60).toFixed(1)),
+    peakWindow,
+    mostActiveDay,
+    currentSlot,
+    upcoming2Hours: {
+      expectedModelCount: upcomingModels.length,
+      models: upcomingModels,
+    },
   };
 }

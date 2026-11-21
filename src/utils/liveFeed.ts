@@ -1,6 +1,8 @@
 import { LiveFeedConfig, LiveRoomInfo, ModelRecord } from '../types/models';
 import { sanitizeUsername } from './sanitizer';
 
+export { buildLivePreviewUrl } from './sanitizer';
+
 export interface DetectedLiveCandidate {
   hrefOrSlug: string;
   viewers?: number;
@@ -14,11 +16,19 @@ export function buildFeedPageUrl(
   pageSize = 500
 ): string {
   const offset = pageIndex * pageSize;
-  const wmValue = config.affiliateWm.trim();
-  let url = config.endpointTemplate.trim();
+  const wmValue = (config.affiliateWm ?? '').trim();
+  let url = (config.endpointTemplate ?? '').trim();
   url = url.replace(/\{wm\}/g, encodeURIComponent(wmValue));
   url = url.replace(/\{offset\}/g, String(offset));
   url = url.replace(/\{limit\}/g, String(pageSize));
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return '';
+    }
+  } catch {
+    return '';
+  }
   return url;
 }
 
@@ -194,6 +204,10 @@ export function extractRoomsFromPayload(
     }
     if (typeof obj.count === 'number' && Number.isFinite(obj.count)) {
       totalReported = obj.count;
+    } else if (typeof obj.total_count === 'number' && Number.isFinite(obj.total_count)) {
+      totalReported = obj.total_count;
+    } else if (typeof obj.all_rooms_count === 'number' && Number.isFinite(obj.all_rooms_count)) {
+      totalReported = obj.all_rooms_count;
     }
   }
 
@@ -211,19 +225,27 @@ export function extractRoomsFromPayload(
     const roomSubject = readString(rec, ['room_subject', 'subject', 'room_title']);
     const imageUrl =
       readString(rec, [
+        'img',
         'image_url_360x270',
         'image_url',
         'preview_url',
         'thumbnail',
       ]) || buildLiveThumbUrl(username);
     const iframeEmbed = readString(rec, ['iframe_embed', 'embed_room_url']);
-    const isHd = Boolean(rec.is_hd ?? rec.hd);
+    const rawHd = rec.is_hd ?? rec.hd;
+    const isHd =
+      rawHd === true || rawHd === 1 || rawHd === 'true' || rawHd === '1';
     const tags = Array.isArray(rec.tags)
       ? rec.tags
           .filter((t): t is string => typeof t === 'string')
           .map((t) => t.trim())
           .filter(Boolean)
-      : [];
+      : typeof rec.tags === 'string'
+        ? rec.tags
+            .split(/[,;]/)
+            .map((t) => t.trim())
+            .filter(Boolean)
+        : [];
 
     rooms.push({
       username,
@@ -269,7 +291,7 @@ export function matchDetectedCandidatesToWatchlist(
       roomSubject: cand.subject || existing?.roomSubject || '',
       tags: existing?.tags ?? [],
       isHd: existing?.isHd ?? false,
-      imageUrl: existing?.imageUrl ?? '',
+      imageUrl: existing?.imageUrl || buildLiveThumbUrl(slug),
       iframeEmbed: existing?.iframeEmbed ?? '',
       lastCheckedAt: checkedAt,
     });

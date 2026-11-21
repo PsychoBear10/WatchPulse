@@ -19,6 +19,7 @@ import {
   Table2,
   Trash2,
   Upload,
+  X,
 } from 'lucide-react';
 import { desktopBridge } from '../../services/bridge';
 import { useAppStore } from '../../store/useAppStore';
@@ -520,7 +521,7 @@ export const RapidSorterView: React.FC<RapidSorterViewProps> = ({
             <span>
               <strong className="text-slate-100">{orderedDeck.length}</strong> in queue
             </span>
-            <span className="text-slate-600">•</span>
+            <span className="text-slate-400">•</span>
             <span>
               <strong className="text-indigo-300">{sessionSorted}</strong> sorted this session
             </span>
@@ -566,7 +567,7 @@ export const RapidSorterView: React.FC<RapidSorterViewProps> = ({
       </div>
 
       {/* Main Split Stage */}
-      <div className="flex-1 flex min-h-0 overflow-hidden">
+      <div className="flex-1 flex min-h-0 overflow-hidden relative">
         {/* Center Deck Stage */}
         <div className="flex-1 flex flex-col items-center justify-between p-6 overflow-y-auto relative">
           <div className="w-full flex flex-wrap items-center justify-start gap-2 shrink-0 mb-2">
@@ -771,13 +772,18 @@ export const RapidSorterView: React.FC<RapidSorterViewProps> = ({
                           })()}
                         </div>
 
-                        <h2 className="text-2xl font-bold tracking-tight text-white truncate">
+                        <h2 className="text-2xl font-bold tracking-tight text-white truncate break-words">
                           {activeModel.displayName || activeModel.username}
                         </h2>
-                        <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-indigo-300/90 truncate">
-                          <span>@{activeModel.username}</span>
-                          <span className="text-slate-600 font-sans">•</span>
-                          <span className="font-sans text-[11px] text-slate-400">
+                        <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-indigo-300/90 min-w-0">
+                          <span
+                            className="truncate max-w-[200px] sm:max-w-xs md:max-w-sm"
+                            title={`@${activeModel.username}`}
+                          >
+                            @{activeModel.username}
+                          </span>
+                          <span className="text-slate-400 font-sans shrink-0">•</span>
+                          <span className="font-sans text-[11px] text-slate-400 shrink-0">
                             Reviewed {formatRelativeAge(activeModel.lastReviewedAt || activeModel.updatedAt)}
                           </span>
                         </div>
@@ -815,7 +821,10 @@ export const RapidSorterView: React.FC<RapidSorterViewProps> = ({
                       {nextModel ? (
                         <span>
                           Up next:{' '}
-                          <span className="text-slate-300 font-mono">
+                          <span
+                            className="text-slate-300 font-mono truncate inline-block max-w-[140px] sm:max-w-[200px] align-bottom"
+                            title={`@${nextModel.username}`}
+                          >
                             @{nextModel.username}
                           </span>
                         </span>
@@ -943,17 +952,34 @@ export const RapidSorterView: React.FC<RapidSorterViewProps> = ({
           )}
         </div>
 
-        {/* Right Quick-Edit Panel — 3D Opaque Liquid Glass Floating */}
+        {/* Right Quick-Edit Panel — 3D Opaque Liquid Glass Floating (Overlay Drawer on <= 1024px) */}
         {showInspector && (
-          <aside className="w-80 lg:w-96 shrink-0 my-2 mr-2.5 mb-2.5 rounded-2xl liquid-sidebar-3d flex flex-col min-h-0 overflow-hidden z-10 transition-all duration-300">
-            <div className="px-4 py-3 border-b border-white/[0.08] bg-white/[0.02] backdrop-blur-md flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-300">
-                Quick-Edit Card
-              </span>
-              <span className="text-[10px] text-slate-500">
-                Press <kbd className="kbd-cap text-[10px] h-4 min-w-4">Esc</kbd> to resume hotkeys
-              </span>
-            </div>
+          <>
+            {/* Backdrop for overlay drawer on screens <= 1024px */}
+            <div
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm z-20 xl:hidden transition-opacity"
+              onClick={() => setShowInspector(false)}
+              aria-hidden="true"
+            />
+            <aside className="absolute inset-y-0 right-0 z-30 w-80 max-w-[calc(100%-1.5rem)] my-2 mr-2.5 mb-2.5 rounded-2xl liquid-sidebar-3d flex flex-col min-h-0 overflow-hidden shadow-2xl xl:relative xl:inset-auto xl:z-10 xl:w-80 2xl:w-96 xl:shrink-0 xl:shadow-none transition-all duration-300">
+              <div className="px-4 py-3 border-b border-white/[0.08] bg-white/[0.02] backdrop-blur-md flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+                  Quick-Edit Card
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-slate-500 hidden sm:inline">
+                    Press <kbd className="kbd-cap text-[10px] h-4 min-w-4">Esc</kbd> to resume hotkeys
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowInspector(false)}
+                    title="Close Quick-Edit drawer"
+                    className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 xl:hidden"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
 
             {!activeModel ? (
               <div className="p-6 text-xs text-slate-500 text-center my-auto">
@@ -1146,7 +1172,8 @@ export const RapidSorterView: React.FC<RapidSorterViewProps> = ({
               </div>
             )}
           </aside>
-        )}
+        </>
+      )}
       </div>
     </div>
   );

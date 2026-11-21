@@ -2,7 +2,7 @@
 ### The Private, Keyboard-First Chaturbate Cam Monitor & Watchlist Studio
 
 [![License: CC0-1.0](https://img.shields.io/badge/License-CC0_1.0-lightgrey.svg)](https://creativecommons.org/publicdomain/zero/1.0/)
-[![Latest Release](https://img.shields.io/badge/Release-v3.0.6-brightgreen.svg)](https://github.com/PsychoBear10/WatchPulse/releases/latest)
+[![Latest Release](https://img.shields.io/badge/Release-v3.0.9-brightgreen.svg)](https://github.com/PsychoBear10/WatchPulse/releases/latest)
 [![Platform](https://img.shields.io/badge/Platform-Windows-blue.svg)](https://github.com/PsychoBear10/WatchPulse/releases/latest)
 
 > **WatchPulse** is a fast, clean, and completely private Windows desktop application designed to track your favorite Chaturbate models, preview streams silently, see who's live in real-time, and organize models into custom playlists with easy hotkeys and drag-and-drop boards.
@@ -15,21 +15,21 @@
 
 Getting started takes less than a minute:
 
-1. Go to the **[Latest Release (v3.0.6)](https://github.com/PsychoBear10/WatchPulse/releases/latest)**.
+1. Go to the **[Latest Release (v3.0.9)](https://github.com/PsychoBear10/WatchPulse/releases/latest)**.
 2. Download your preferred version:
-   - **`WatchPulse-3.0.6-Setup.exe`** *(Recommended)* — Quick installer that creates a desktop shortcut and keeps your data intact across updates.
-   - **`WatchPulse-3.0.6-Portable.exe`** — Portable version. Just double-click to run without installing anything.
+   - **`WatchPulse-3.0.9-Setup.exe`** *(Recommended)* — Quick installer that creates a desktop shortcut, remembers window position, and keeps your data intact across updates.
+   - **`WatchPulse-3.0.9-Portable.exe`** — Portable version. Just double-click to run without installing anything.
 3. Open the app, paste a few model usernames or profile links, and you're ready to go!
 
 ---
 
 ## ✨ What WatchPulse Does (In Plain English)
 
-### 🔴 Real-Time Live Cam Monitor & Watch Wall
-- Instantly see which models on your list are **Online**, in **Private**, or **Offline**.
-- View live room topics and viewer counts without opening heavy browser tabs.
-- Open the **Watch Wall** to view multiple active live streams side-by-side in a clean multi-stream grid.
+### 🔴 Real-Time Live Cam Monitor & Multi-Stream Watch Wall
+- **100% Accurate Status Polling:** Direct integration with Chaturbate's native roomlist API plus automated direct verification so you never miss when a saved model goes live.
+- **Multi-Stream Watch Wall:** View multiple active live streams side-by-side in a clean multi-stream grid with hardware-safe GPU decoder protections.
 - **Auto-Drop Offline:** Automatically clears tiles when a stream ends so your wall only shows active cams.
+- **Live Room Topics & Stats:** View current room topics, viewer counts, and status indicators without opening browser tabs.
 
 ### 🎧 Muted, Fast Stream Previews
 - Click any model to open a silent, isolated live preview window.
@@ -40,12 +40,15 @@ Getting started takes less than a minute:
 - **Kanban Board:** View and manage your models visually by dragging and dropping them between customizable playlist columns.
 - **Smart Re-Sort Reminders:** Set reminders (e.g. every 14 days) so you can periodically check back on models and keep your lists fresh. Review queues are smoothly spread out day-by-day so you never get overwhelmed.
 
-### ⏰ Smart Streaming Predictions
-- Shows a helpful **"Usual · 85%"** badge when a model is currently within their regular streaming hours, helping you catch broadcasts right on time.
+### 📊 Peak Hours Schedule Matrix & Smart Forecasts
+- **7×24 Broadcast Heatmap:** Interactive matrix showing aggregated 30-day broadcast volume and density across every hour of the week to pinpoint when your favorites stream most.
+- **"Usual" Window Badges:** Shows live confidence badges (e.g., **"Usual · 85%"**) when a model is currently within their typical streaming hours.
 
-### 🎨 Apple-Style Liquid Glass Look
-- A sleek, modern design with smooth rounded glass panels and soft ambient depth.
-- Switch between three themes with one click: **Dark** (Midnight Obsidian), **Grey** (Space Gray Studio), or **Light** (Ice Glass).
+### 🎨 Apple-Style Liquid Glass & Organic Mesh Aura
+- **Liquid Glass Aesthetic:** Sleek frosted acrylic panels with 28px blur, smooth squircle corners, and ambient specular depth.
+- **Live Organic Mesh Aura:** Subtle, GPU-accelerated atmospheric background orbs that gently morph with 0% CPU impact.
+- **Apple iMac-Style Window Chrome:** Authentic traffic light window controls (🔴 Close, 🟡 Minimize, 🟢 Maximize) with automatic window position & size memory across launches.
+- **Three Themes:** Switch with one click between **Dark** (Midnight Obsidian), **Grey** (Space Gray Studio), or **Light** (Ice Glass) with high-contrast text.
 
 ---
 

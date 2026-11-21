@@ -568,7 +568,7 @@ export const DataGridView: React.FC<DataGridViewProps> = ({
                             {reviewHelper.getStatus(model).isDueForReview && (
                               <span
                                 title={`Due for periodic re-sort (Cadence + ${reviewHelper.getStatus(model).spreadOffsetDays}d random spread)`}
-                                className="px-1 py-0.2 rounded text-[9px] font-semibold bg-amber-500/20 text-amber-200 border border-amber-500/35 shrink-0"
+                                className="px-1 py-0.5 rounded text-[9px] font-semibold bg-amber-500/20 text-amber-200 border border-amber-500/35 shrink-0"
                               >
                                 Re-sort Due
                               </span>

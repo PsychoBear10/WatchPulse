@@ -7,6 +7,151 @@
   },
   "releases": [
     {
+      "displayVersion": "v3.09",
+      "semver": "3.0.9",
+      "date": "2026-11-21",
+      "releaseType": "Final v3 Milestone & Comprehensive Quality Overhaul",
+      "summary": "Introduces the Live Floating Organic Mesh Aura behind visionOS-grade frosted opaque glass with 60fps GPU execution, alongside a comprehensive 91-bug resolution overhaul spanning Electron process security, IPC stability, debounced persistence race condition defense, Chaturbate HLS quotation parsing, Watch Wall decoder safety, Schedule Matrix 1024px responsive alignment, and complete Light Mode contrast restoration.",
+      "dataMigrationNote": "Seamless in-place update over v3.08 / 3.0.8 — fully backward-compatible with all v1.x/v2.x/v3.x databases. Preserves all models, custom tiers, hotkeys, thumbnails, presence intelligence, and Recycling Bin history.",
+      "changes": [
+        {
+          "category": "Live Floating Organic Mesh Aura Behind Frosted Glass",
+          "items": [
+            "Engineered a multi-node organic mesh aura comprising Electric Cyan (#00F2FE), Royal Azure (#2563EB), Cosmic Violet (#7C3AED), Neon Magenta (#C026D3), and Emerald Aurora (#10B981) orbs.",
+            "Added a central atmospheric mesh nexus and specular top rim gradient for organic, morphing depth behind headers and panels.",
+            "Powered by 100% GPU hardware-accelerated translate3d keyframe loops on alternating 22s–32s harmonic cycles with will-change: transform (0% CPU impact).",
+            "Upgraded all frosted glass surfaces (liquid sidebars, cards, studio panels, headers) to 28px blur and 180% saturation with specular edge glints across Dark, Grey, and Light themes."
+          ]
+        },
+        {
+          "category": "Security, IPC & Native Window Architecture",
+          "items": [
+            "Secured Picture-in-Picture window with will-navigate and setWindowOpenHandler guards, denying arbitrary internal navigations and routing external URLs to the system browser.",
+            "Restricted local-media:// and local-media://thumb/ strictly within app data directories, blocking path traversal and UNC network share access.",
+            "Hardened all IPC channels (live:fetchJson, dialog:saveExportFile, pip:open) against null/undefined inputs, eliminating uncaught main process crashes.",
+            "Clamped loadWindowState to prevent negative Y coordinate titlebar offscreen traps on DPI shifts or disconnected monitors.",
+            "Preserved corrupted JSON files as .corrupt-[timestamp].json snapshots prior to backup recovery."
+          ]
+        },
+        {
+          "category": "Persistence, Poller & Streaming Stability",
+          "items": [
+            "Fixed debounced persistData snapshot race condition by saving latestDataRef.current inside the 180ms timeout.",
+            "Eliminated exit save drops by ensuring hasPendingSaveRef only resets when no trailing save timers remain.",
+            "Fixed Chaturbate initialRoomDossier regex truncation on escaped quotes, restoring 100% HLS stream resolution and watchlist verification.",
+            "Enforced a 24-stream safety limit on Watch Wall to protect Chromium GPU video decoders.",
+            "Bounded STREAM_RESOLVE_CACHE with 100-entry LRU eviction and 30s TTL sweeps, eliminating heap memory growth.",
+            "Eliminated 15s thumbnail cache-busting churn, saving Chromium RAM and network bandwidth.",
+            "Memoized getUsuallyLiveNowMeta with an hourly slot cache, eliminating 100ms CPU thread freezes during live feed polls."
+          ]
+        },
+        {
+          "category": "Analytics, Importer & Core Mutations",
+          "items": [
+            "Fixed Schedule Matrix midnight 2-hour sliding window day-wrapping, correctly pairing Friday 23:00 with Saturday 00:00.",
+            "Accurately parsed 90-day retention cutoff hourly keys, preventing premature 23-hour bucket pruning.",
+            "Handled ongoing live streams (endTime: null) by clamping to current timestamp.",
+            "Preserved valid usernames containing dots (e.g. anna.fox) in sanitizer.",
+            "Added CSV formula injection defense (=, +, -, @) in exports.",
+            "Resequenced zero-indexed order numbers on tier deletion and prevented duplicate model records during trash restoration."
+          ]
+        },
+        {
+          "category": "Light Mode Contrast & Responsive Layout",
+          "items": [
+            "Restored high-contrast readable styling for toast notifications, table headers, and 16 dark backgrounds in Light Mode.",
+            "Preserved crisp white text on amber action buttons.",
+            "Replaced dropped py-0.2 with py-0.5 across 13 badges; fixed invalid h-4.5 on CBExplorer toggle; replaced invalid left-1/6 with inset-x-[16.666%].",
+            "Defined shadow-elevation, animate-spin-slow, animate-fade-in, and custom-scrollbar utilities.",
+            "Shifted Schedule Matrix 1024px split layout breakpoint to xl: (1280px), cleanly stacking the inspector without horizontal overflow.",
+            "Added max-w calc and flex-wrap to Live Monitor card badges, preventing collisions with hover action buttons on narrow cards.",
+            "Added overflow-y-auto to ModalShell backdrop, preventing titlebars and footers from trapping offscreen on <=612px window heights.",
+            "Capped Kanban columns to 50 cards with incremental loading, eliminating DOM drag-and-drop lag on large workspaces."
+          ]
+        }
+      ]
+    },
+    {
+      "displayVersion": "v3.08",
+      "semver": "3.0.8",
+      "date": "2026-11-21",
+      "releaseType": "UI Polish & Experience Patch",
+      "summary": "Fixes Volume heatmap number overlap in the Schedule Matrix with smart integer rounding and cell overflow clipping, scales the atmospheric blue/indigo specular ambient glow across the entire application and all modals, enforces uniform window dimensions across all Settings tabs to eliminate layout shifts, and removes redundant top bar navigation.",
+      "dataMigrationNote": "Seamless in-place update over v3.07 / 3.0.7 — fully backward-compatible with all v1.x/v2.x/v3.x databases. Preserves all models, custom tiers, hotkeys, thumbnails, and Recycling Bin history.",
+      "changes": [
+        {
+          "category": "Schedule Matrix Volume Heatmap Fix",
+          "items": [
+            "Resolved text overlapping in Volume mode: in 24-hour view, volume hours are cleanly formatted as rounded integers (e.g. 71, 57, 35) matching density count widths.",
+            "Added strict overflow clipping and text truncation to all matrix cells, preventing numbers from bleeding into adjacent columns.",
+            "Full decimal hours remain accessible via native hover tooltips, period zoom views, and the Slot Inspector Drawer.",
+            "Expanded minimum matrix width to 720px for enhanced column spacing."
+          ]
+        },
+        {
+          "category": "Atmospheric Specular Ambient Glow",
+          "items": [
+            "Scaled the visionOS-style blue and indigo specular ambient glow across the workspace shell and window headers.",
+            "Applied fixed atmospheric radial gradients to the CSS canvas across dark and light themes.",
+            "Extended the ambient header aura to ModalShell, unifying visual depth across Settings, Import, Export, Recycling Bin, Model Editor, and Tier Manager modals."
+          ]
+        },
+        {
+          "category": "Settings Window Uniformity & Navigation Cleanup",
+          "items": [
+            "Enforced consistent fixed-height geometry (84vh, 580px–820px) across all Settings tabs, eliminating window jumping, resizing, and vertical shifting.",
+            "Pinned modal headers and footers with custom glass scrollbars in the interior content container.",
+            "Removed redundant Schedule Matrix button from the top navigation bar, keeping it streamlined in the Live Monitor toolbar."
+          ]
+        }
+      ]
+    },
+    {
+      "displayVersion": "v3.07",
+      "semver": "3.0.7",
+      "date": "2026-11-21",
+      "releaseType": "Hotfix & Feature Update",
+      "summary": "Fixes live room polling by integrating Chaturbate's native zero-config live roomlist API with 100% direct watchlist verification fallback, replaces the standard Windows titlebar with authentic Apple iMac-style liquid glass traffic light window controls, adds persistent Window Size & Position Memory across launches, and introduces the Watchlist Peak Hours Schedule Matrix for aggregated 30-day broadcast intelligence.",
+      "dataMigrationNote": "Seamless in-place update over v3.06 / 3.0.6 — fully backward-compatible with all v1.x/v2.x/v3.x databases. Automatically upgrades deprecated live feed endpoint URLs to the new native Chaturbate API.",
+      "changes": [
+        {
+          "category": "Native Live Room Feed & Direct Watchlist Verification",
+          "items": [
+            "Migrated the default zero-config live room feed poller directly to Chaturbate's native roomlist API (https://chaturbate.com/api/ts/roomlist/room-list/?offset={offset}&limit={limit}), bypassing 3rd-party CDN access issues and Cloudflare gates.",
+            "Engineered high-speed Direct Watchlist Fallback Verification: any saved model not caught in top roomlist pages is directly verified via parallel Chaturbate embed dossiers for 100% detection accuracy.",
+            "Added Quick API Presets in Settings: switch between Chaturbate Native (Default), Chaturbate Affiliate ({wm}), and CBExplorer with a single click.",
+            "Added automatic schema migration in storage and client sanitizers to silently upgrade legacy digitaloceanspaces and cbexplorer URLs to the active native endpoint upon launch."
+          ]
+        },
+        {
+          "category": "Apple iMac-Style Traffic Light Window Controls",
+          "items": [
+            "Replaced the standard Windows OS title bar and default caption buttons with authentic Apple iMac-style circular traffic light controls (🔴 Close, 🟡 Minimize, 🟢 Maximize / Restore).",
+            "Engineered macOS-accurate specular highlights, hover micro-glyphs (✕, —, ⤢), tactile micro-scaling, and seamless window drag/double-click maximize behavior.",
+            "Unified the window chrome directly into the liquid-glass top bar, reclaiming vertical screen real estate for an immersive macOS / visionOS aesthetic."
+          ]
+        },
+        {
+          "category": "Window Size & Position Memory",
+          "items": [
+            "Persistent window bounds: WatchPulse automatically saves and restores window dimensions (width, height), screen coordinates (x, y), and maximized state across app relaunches.",
+            "Multi-display safety guard: Automatically verifies restored coordinates against active connected monitor work areas, safely centering the window if a secondary display was disconnected.",
+            "Debounced I/O with flush on exit: Persists window state asynchronously with 500ms debouncing during drag/resize, and executes an immediate synchronous flush upon application shutdown."
+          ]
+        },
+        {
+          "category": "Watchlist Peak Hours Schedule Matrix",
+          "items": [
+            "Aggregated 7×24 Schedule Matrix: Visualizes 30-day broadcast patterns across all 168 hours of the week for your entire watchlist or filtered by custom tier / playlist.",
+            "Concurrent Model Density & Broadcast Volume: Interactive heatmap toggle to view concurrent streaming model counts or cumulative broadcast hours per time slot.",
+            "Executive Peak Intelligence: Highlights optimal 2-hour global peak streaming windows, the most active day of the week, and live expected models for the current hour.",
+            "Interactive Slot Inspector: Click any matrix cell to open an inspector drawer detailing active models in that slot, their streaming volume, online status, and one-click stage streaming.",
+            "Quick access anywhere: Accessible via the top navigation bar, the Live Monitor toolbar, or the global Ctrl+M keyboard shortcut."
+          ]
+        }
+      ]
+    },
+    {
       "displayVersion": "v3.06",
       "semver": "3.0.6",
       "date": "2026-11-15",

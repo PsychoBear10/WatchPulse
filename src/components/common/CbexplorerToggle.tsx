@@ -66,7 +66,7 @@ export const CbexplorerToggle: React.FC<CbexplorerToggleProps> = ({
         <span className="text-xs font-medium">Added to CBExplorer Watchlist</span>
       </div>
       <div
-        className={`w-8 h-4.5 rounded-full p-0.5 transition-colors flex items-center ${
+        className={`w-8 h-[18px] rounded-full p-0.5 transition-colors flex items-center ${
           checked ? 'bg-emerald-500' : 'bg-slate-700'
         }`}
       >

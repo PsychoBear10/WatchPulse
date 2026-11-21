@@ -7,6 +7,7 @@ interface ModalShellProps {
   title: string;
   subtitle?: string;
   maxWidthClass?: string;
+  heightClass?: string;
   disableEscapeClose?: boolean;
   children: React.ReactNode;
   footer?: React.ReactNode;
@@ -18,6 +19,7 @@ export const ModalShell: React.FC<ModalShellProps> = ({
   title,
   subtitle,
   maxWidthClass = 'max-w-3xl',
+  heightClass = 'max-h-[88vh]',
   disableEscapeClose = false,
   children,
   footer,
@@ -38,14 +40,17 @@ export const ModalShell: React.FC<ModalShellProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-md transition-all"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto py-4 sm:py-6 bg-black/65 backdrop-blur-md transition-all"
       onClick={onClose}
     >
       <div
-        className={`w-full ${maxWidthClass} max-h-[88vh] flex flex-col liquid-glass-card rounded-2xl shadow-elevation overflow-hidden animate-card-enter`}
+        className={`w-full ${maxWidthClass} ${heightClass} flex flex-col liquid-glass-card rounded-2xl shadow-elevation overflow-hidden animate-card-enter relative my-auto`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4 px-6 py-4 border-b border-white/[0.08] liquid-glass-header">
+        {/* Specular Ambient Header Glow (Luminous Cyan & Royal Azure Glow) */}
+        <div className="absolute top-0 inset-x-[16.666%] h-32 bg-gradient-to-b from-cyan-400/28 via-blue-500/18 to-transparent blur-xl pointer-events-none rounded-t-2xl z-0" />
+
+        <div className="flex items-start justify-between gap-4 px-6 py-4 border-b border-white/[0.08] liquid-glass-header relative z-10 shrink-0">
           <div>
             <h2 className="text-base font-semibold text-white">{title}</h2>
             {subtitle && (
@@ -62,10 +67,10 @@ export const ModalShell: React.FC<ModalShellProps> = ({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>
+        <div className="flex-1 overflow-y-auto px-6 py-5 custom-scrollbar relative z-10">{children}</div>
 
         {footer && (
-          <div className="px-6 py-3.5 border-t border-white/[0.08] liquid-glass-header flex items-center justify-end gap-2.5">
+          <div className="px-6 py-3.5 border-t border-white/[0.08] liquid-glass-header flex items-center justify-end gap-2.5 relative z-10 shrink-0">
             {footer}
           </div>
         )}

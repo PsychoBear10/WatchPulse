@@ -33,6 +33,7 @@ module.exports = {
       },
       boxShadow: {
         glow: '0 0 0 1px rgba(255,255,255,0.08), 0 20px 50px -12px rgba(0,0,0,0.7)',
+        elevation: '0 20px 48px -10px rgba(0, 0, 0, 0.70), 0 8px 20px -4px rgba(0, 0, 0, 0.45)',
       },
     },
   },

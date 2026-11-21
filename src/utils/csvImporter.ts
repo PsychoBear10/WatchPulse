@@ -126,7 +126,11 @@ export function parseImportInput(
           ? normalizeExternalUrl(rawName)
           : '';
 
-    const usernameFromLink = originalLink ? sanitizeUsername(originalLink) : '';
+    const usernameFromLink = originalLink
+      ? sanitizeUsername(originalLink)
+      : rawLink
+        ? sanitizeUsername(rawLink)
+        : '';
     const usernameFromName = rawName ? sanitizeUsername(rawName) : '';
     const username = usernameFromLink || usernameFromName;
 
